@@ -368,7 +368,7 @@ const AccountWalletStatment = async (req, res) => {
 const AccountTransfer = async (req, res) => {
 	try {
 		const { From, To, Amount, Date, REF } = req.body;
-		
+
 		const [data] = await db.execute(
 			`CALL Wallet_Transfer(?,?,?,?,?)`, [From, To, Amount, Date, REF]);
 
@@ -429,7 +429,7 @@ const LedgerListByUser = async (req, res) => {
 		const { Client_id, Consignee_ID } = req.body;
 
 		const [data] = await db.query(`
-			SELECT Ledger.*, s.Bank_nick_name, ip.Client_id, ip.Consignee_ID
+			SELECT Ledger.*, s.Bank_nick_name, ip.Client_id, ip.Consignee_ID, ip.FX_Payment
 			FROM Ledger
 			INNER JOIN setup_bank AS s ON s.bank_id = Ledger.Bank
 			INNER JOIN Invoice_Payment AS ip ON ip.C_payment_id  = Ledger.Invoice_payment_Id
@@ -494,7 +494,7 @@ const StatisticsDATEselection = async (req, res) => {
 const StatisticsDATEComparision = async (req, res) => {
 	try {
 		const { Period_id, Selection_id, Start_DATE, END_DATE } = req.body;
-		
+
 		const [data] = await db.execute(
 			`CALL Statistics_DATE_Comparision(?,?,?,?, @Compare_Start_DATE,  @Compare_END_DATE)`, [Period_id, Selection_id, Start_DATE, END_DATE]);
 		const [details] = await db.execute(

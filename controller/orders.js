@@ -1185,6 +1185,9 @@ const GetOrderPdfDetails = async (req, res) => {
 				order_id = ?
 		`, [order_id]);
 
+		const sql1 = `SELECT PDF_Customs_GW_Orders(${order_id}) AS GW`;
+		const [rows1] = await db.query(sql1);
+
 		res.status(200).json({
 			message: "PDF Details",
 			//data: data,
@@ -1193,7 +1196,8 @@ const GetOrderPdfDetails = async (req, res) => {
 			clientResults: clientResults[0],
 			consigneeResults: consigneeResults[0],
 			currencyResults: currencyResults[0],
-			freightDetailsResults: freightDetailsResults[0]
+			freightDetailsResults: freightDetailsResults[0],
+			gw: rows1[0].GW
 		});
 	} catch (e) {
 		res.status(400).json({
@@ -1818,7 +1822,7 @@ const InvoiceShipped = async (req, res) => {
 			data: rows,
 		});
 		// Fetch data from new_order_costs and order_details tables
-		
+
 	} catch (e) {
 		// Log the error for debugging
 		console.error('Error fetching order:', e);
@@ -1916,6 +1920,9 @@ const CustomeInvoicePdfDetails = async (req, res) => {
 				order_id = ?
 		`, [order_id]);
 
+		const sql1 = `SELECT PDF_Customs_GW_Invoice(${invoice_id}) AS GW`;
+		const [rows1] = await db.query(sql1);
+
 		res.status(200).json({
 			message: "PDF Details",
 			//data: data,
@@ -1924,7 +1931,8 @@ const CustomeInvoicePdfDetails = async (req, res) => {
 			clientResults: clientResults[0],
 			consigneeResults: consigneeResults[0],
 			currencyResults: currencyResults[0],
-			freightDetailsResults: freightDetailsResults[0]
+			freightDetailsResults: freightDetailsResults[0],
+			gw: rows1[0].GW
 		});
 	} catch (e) {
 		res.status(400).json({
