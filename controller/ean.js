@@ -429,7 +429,7 @@ const LedgerListByUser = async (req, res) => {
 		const { Client_id, Consignee_ID } = req.body;
 
 		const [data] = await db.query(`
-			SELECT Ledger.*, s.Bank_nick_name, ip.Client_id, ip.Consignee_ID, ip.FX_Payment
+			SELECT Ledger.*, s.Bank_nick_name, ip.Client_id, ip.Consignee_ID, ip.FX_Payment, ip.Client_payment_ref
 			FROM Ledger
 			INNER JOIN setup_bank AS s ON s.bank_id = Ledger.Bank
 			INNER JOIN Invoice_Payment AS ip ON ip.C_payment_id  = Ledger.Invoice_payment_Id

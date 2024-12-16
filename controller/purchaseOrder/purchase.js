@@ -825,7 +825,8 @@ const purchaseOrderPayment = async (req, res) => {
 			THB_Paid,
 			LOSS_GAIN_THB,
 			Client_payment_ref,
-			Bank_Ref
+			Bank_Ref,
+			Notes
 		} = req.body;
 
 		// Log the request body for debugging
@@ -842,7 +843,7 @@ const purchaseOrderPayment = async (req, res) => {
 				THB_Paid, 
 				Rounding, 
 				Client_payment_ref, 
-				Bank_Ref) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [Vendor_ID,
+				Bank_Ref, Notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [Vendor_ID,
 			Payment_date,
 			Payment_Channel,
 			FX_Payment,
@@ -853,7 +854,7 @@ const purchaseOrderPayment = async (req, res) => {
 			THB_Paid,
 			LOSS_GAIN_THB,
 			Client_payment_ref,
-			Bank_Ref],
+			Bank_Ref, Notes || null],
 			(error, data) => {
 				if (error) {
 					resp.status(500).send({
@@ -1352,6 +1353,20 @@ const PurchaseOrderPackagingPayable = async (req, res) => {
 	}
 };
 
+const RecordCommission = async (req, res) => {
+	try {
+		const { client_id, consignee_id } = req.body;
+		// Properly await the result of the procedure call
+		const [data] = await db2.execute("CALL Commission_list(?,?)", [client_id, consignee_id]);
+		// Send the response with the data
+
+		res.status(200).json({ success: true, message: "Success", data: data[0] });
+
+	} catch (e) {
+		console.error(e.message); // Log the error for debugging
+		res.status(500).json({ message: "Error has occurred", error: e.message });
+	}
+};
 
 module.exports = {
 	addPurchageOrder,
@@ -1382,5 +1397,6 @@ module.exports = {
 	purchaseOrderPdfDetails,
 	expensePaymentSlip,
 	InvoicePaymentSlip,
-	PurchaseOrderPackagingPayable
+	PurchaseOrderPackagingPayable,
+	RecordCommission
 }

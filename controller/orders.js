@@ -1787,7 +1787,7 @@ const InvoiceShipped = async (req, res) => {
 	}
 
 	try {
-		const sqlFOB = 'CALL Invoice_Shipped2(?, @Message_en, @Message_th); SELECT @Message_en AS Message_en, @Message_th AS Message_th;';
+		const sqlFOB = 'CALL Invoice_Shipped(?, @Message_en, @Message_th); SELECT @Message_en AS Message_en, @Message_th AS Message_th;';
 		const [rows] = await db.query(sqlFOB, [Invoice_id]);
 		//console.log(rows);
 
@@ -2005,7 +2005,7 @@ const copyOrder = async (req, res) => {
 		const { order_id, user } = req.body;
 		//console.log(req.body);
 
-		const sqlFOB = 'CALL Copy_order(?,?)';
+		const sqlFOB = 'CALL Order_Copy(?,?)';
 		const [rows] = await db.query(sqlFOB, [order_id, user]);
 
 		res.status(200).json({
@@ -3064,6 +3064,59 @@ const getInvoiceById = async (req, res) => {
 	}
 };
 
+const RebateRecord = async (req, res) => {
+	try {
+		const { Invoice_id } = req.body;
+		if (!Invoice_id) {
+			return res.status(400).json({
+				success: false,
+				message: "Invoice ID is required."
+			})
+		}
+		const [data] = await db.query('CALL Rebate_Recorcd(?)', [Invoice_id]);
+		//console.log(data);
+
+		// Retrieve the output parameters
+		res.status(200).json({
+			success: true,
+			data: data[0],
+			message: "successfully"
+		});
+	} catch (error) {
+		res.status(400).json({
+			message: "An error occurred while retrieving the invoice.",
+			error: error.message,
+		});
+	}
+}
+
+const RebateReduceInvoice = async (req, res) => {
+	try {
+		const { Invoice_id } = req.body;
+		if (!Invoice_id) {
+			return res.status(400).json({
+				success: false,
+				message: "Invoice ID is required."
+			})
+		}
+		const [data] = await db.query('CALL Rebate_Reduce_Invoice(?)', [Invoice_id]);
+		//console.log(data);
+
+		// Retrieve the output parameters
+		res.status(200).json({
+			success: true,
+			data: data[0],
+			message: "successfully"
+		});
+	} catch (error) {
+		res.status(400).json({
+			message: "An error occurred while retrieving the invoice.",
+			error: error.message,
+		});
+	}
+}
+
+
 
 module.exports = {
 	getOrders,
@@ -3126,5 +3179,7 @@ module.exports = {
 	ConsigneeBrandDropdown,
 	ProduceTrendGraph,
 	getOrderById,
-	getInvoiceById
+	getInvoiceById,
+	RebateRecord,
+	RebateReduceInvoice
 }

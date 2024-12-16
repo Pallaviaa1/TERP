@@ -48,8 +48,6 @@ const getClaim = async (req, res) => {
 };
 
 
-
-
 const getClaimDetails = async (req, res) => {
     try {
         const { claim_id } = req.body;
@@ -59,7 +57,32 @@ const getClaimDetails = async (req, res) => {
             [3],
         )
         const Company_Address = CompanyAddress[0];
+        const [rebateCheck] = await db.query(`
+            SELECT * FROM Claim 
+            WHERE Claim_id = ? AND REBATE = 1
+        `, [claim_id]);
 
+        if (rebateCheck.length > 0) {
+            return res.status(200).json({
+                message: "Claim Details",
+                data: [
+                    {
+                        Claim_Details_id: '',
+                        Claim_id: '',
+                        ID_ID: '',
+                        Claim_reason: '',
+                        ITF: '',
+                        QTY: '',
+                        Unit: '',
+                        Claimed_amount: rebateCheck[0].Claimed_amount,
+                        created: '',
+                        itf_name_en: 'REBATE',
+                        unit_name_en: '',
+                    },
+                ],
+                Company_Address: Company_Address
+            })
+        }
         const [result] = await db.query(`SELECT Claim_Details.*, itf.itf_name_en, dropdown_unit_count.unit_name_en FROM Claim_Details
             INNER JOIN 
      itf ON itf.itf_id = Claim_Details.ITF
@@ -206,6 +229,27 @@ const DeleteClaim = async (req, res) => {
 };
 
 
+const getPurchaseClaimDetails = async (req, res) => {
+    try {
+        const { purchase_id } = req.body;
+
+        const [result] = await db.query(`SELECT *, pod_name(purchase_order_details.pod_code) AS pod_name,
+    pod_unit_name_pod(purchase_order_details.pod_code) AS pod_unit
+     FROM purchase_order_details
+             where po_id ='${purchase_id}'`)
+        res.status(200).json({
+            message: "Claim Details",
+            data: result
+        })
+    } catch (err) {
+        res.status(400).json({
+            message: "Error Occured",
+            error: err.message,
+        })
+    }
+}
+
+
 module.exports = {
-    getClaim, getClaimDetails, dropdownClaimReason, updateClaim, insertClaim, AddClaimDetails, DeleteClaim
+    getClaim, getClaimDetails, dropdownClaimReason, updateClaim, insertClaim, AddClaimDetails, DeleteClaim, getPurchaseClaimDetails
 }

@@ -150,7 +150,8 @@ const {
 	purchaseOrderPdfDetails,
 	expensePaymentSlip,
 	InvoicePaymentSlip,
-	PurchaseOrderPackagingPayable
+	PurchaseOrderPackagingPayable,
+	RecordCommission
 } = require("../controller/purchaseOrder/purchase")
 const {
 	getAirline,
@@ -202,7 +203,7 @@ const {
 } = require("../controller/pack")
 
 const {
-	getClaim, getClaimDetails, dropdownClaimReason, updateClaim, insertClaim, AddClaimDetails, DeleteClaim
+	getClaim, getClaimDetails, dropdownClaimReason, updateClaim, insertClaim, AddClaimDetails, DeleteClaim, getPurchaseClaimDetails
 } = require("../controller/claim")
 const {
 	getConsignee,
@@ -308,6 +309,8 @@ const {
 	ProduceTrendGraph,
 	getOrderById,
 	getInvoiceById,
+	RebateRecord,
+	RebateReduceInvoice,
 	CustomeInvoicePdfDetails,
 	copyOrder,
 	invoicePdfTable,
@@ -565,6 +568,7 @@ router.post("/purchaseOrderPdfDetails", purchaseOrderPdfDetails)
 router.post("/expensePaymentSlip", expensePaymentSlip)
 router.post("/InvoicePaymentSlip", InvoicePaymentSlip)
 router.get("/PurchaseOrderPackagingPayable", PurchaseOrderPackagingPayable)
+router.post("/RecordCommission", RecordCommission)
 
 router.post("/updatePodStatus", purchaseOrderStatus)
 router.get("/getFreight", getFreight)
@@ -770,6 +774,8 @@ router.post("/ConsigneeBrandDropdown", ConsigneeBrandDropdown)
 router.post("/ProduceTrendGraph", ProduceTrendGraph)
 router.get("/getOrderById", getOrderById)
 router.get("/getInvoiceById", getInvoiceById)
+router.post("/RebateRecord", RebateRecord)
+router.post("/RebateReduceInvoice", RebateReduceInvoice)
 router.post("/cancle_invoice", cancle_invoice)
 router.post("/invoice_procedure", invoice_procedure)
 router.get('/proformaMain_Invoice', proformaMain_Invoice)
@@ -840,5 +846,6 @@ router.post("/updateClaim", updateClaim)
 router.post("/insertClaimDetails", insertClaim)
 router.post("/AddClaimDetails", AddClaimDetails)
 router.post("/DeleteClaim", DeleteClaim)
+router.post("/getPurchaseClaimDetails", getPurchaseClaimDetails)
 
 module.exports = router
