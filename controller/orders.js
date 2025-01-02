@@ -3,7 +3,8 @@ const { log } = require("winston");
 const { db } = require("../db/db2")
 const sendMail = require('../helpers/sendMail');
 const db2 = require("../db/db2");
-
+const fs = require('fs');
+const path = require('path');
 
 const getOrders = async (req, res) => {
 	try {
@@ -2676,34 +2677,79 @@ const calculateInvoice = async (req, res) => {
 	}
 }
 
+// const UploadPdf = async (req, res) => {
+// 	try {
+// 		if (!req.file) {
+// 			// Handle case where file is not present in the request
+// 			console.error('No file uploaded');
+// 			return res.status(400).json({
+// 				success: false,
+// 				message: 'No file uploaded'
+// 			});
+// 		}
+
+// 		const document = req.file.filename;
+// 		//console.log('Uploaded document:', document);
+
+// 		res.status(200).json({
+// 			success: true,
+// 			message: 'Uploaded successfully'
+// 		});
+// 	} catch (error) {
+// 		console.error('Error in file upload:', error);
+// 		res.status(500).json({
+// 			success: false,
+// 			message: 'Internal server error',
+// 			error: error.message
+// 		});
+// 	}
+// };
+
+
 const UploadPdf = async (req, res) => {
 	try {
-		if (!req.file) {
-			// Handle case where file is not present in the request
-			console.error('No file uploaded');
-			return res.status(400).json({
-				success: false,
-				message: 'No file uploaded'
-			});
+	  if (!req.file) {
+		// Handle case where file is not present in the request
+		console.error('No file uploaded');
+		return res.status(400).json({
+		  success: false,
+		  message: 'No file uploaded'
+		});
+	  }
+  
+	  const document = req.file.filename;
+	  const uploadFolderPath = path.join(__dirname, '../public/image');  // Adjust to your folder path
+  
+	  // Extract the base name from the uploaded file (e.g., 'INV-202412040' part)
+	  const baseName = document.split('_')[0]; // Assuming filename format like 'INV-202412040_Invoice_30-12-2024'
+  
+	  // Read all files in the upload folder
+	  const files = fs.readdirSync(uploadFolderPath);
+  
+	  // Iterate through the files and delete those that start with the same base name, except the current one
+	  files.forEach((file) => {
+		if (file.startsWith(baseName) && file !== document) {  // Skip the current file
+		  const filePath = path.join(uploadFolderPath, file);
+		  fs.unlinkSync(filePath);  // Delete the file
+		  console.log(`Deleted existing file: ${file}`);
 		}
-
-		const document = req.file.filename;
-		//console.log('Uploaded document:', document);
-
-		res.status(200).json({
-			success: true,
-			message: 'Uploaded successfully'
-		});
+	  });
+  
+	  // Now the file has been deleted, proceed with uploading the new file
+	  res.status(200).json({
+		success: true,
+		message: 'Uploaded and old files deleted successfully (excluding the current one)'
+	  });
 	} catch (error) {
-		console.error('Error in file upload:', error);
-		res.status(500).json({
-			success: false,
-			message: 'Internal server error',
-			error: error.message
-		});
+	  console.error('Error in file upload:', error);
+	  res.status(500).json({
+		success: false,
+		message: 'Internal server error',
+		error: error.message
+	  });
 	}
-};
-
+  };
+  
 
 const ApproveOrder = async (req, res) => {
 	try {
