@@ -151,7 +151,11 @@ const {
 	expensePaymentSlip,
 	InvoicePaymentSlip,
 	PurchaseOrderPackagingPayable,
-	RecordCommission
+	RecordCommission,
+	RecordCommissionPayment,
+	RecordCommissionPaymentDetails,
+	DebitNotes,
+	DebitNotesDetails
 } = require("../controller/purchaseOrder/purchase")
 const {
 	getAirline,
@@ -569,6 +573,10 @@ router.post("/expensePaymentSlip", expensePaymentSlip)
 router.post("/InvoicePaymentSlip", InvoicePaymentSlip)
 router.get("/PurchaseOrderPackagingPayable", PurchaseOrderPackagingPayable)
 router.post("/RecordCommission", RecordCommission)
+router.post("/RecordCommissionPayment", RecordCommissionPayment)
+router.post("/RecordCommissionPaymentDetails", RecordCommissionPaymentDetails)
+router.post("/DebitNotes", DebitNotes)
+router.post("/DebitNotesDetails", DebitNotesDetails)
 
 router.post("/updatePodStatus", purchaseOrderStatus)
 router.get("/getFreight", getFreight)

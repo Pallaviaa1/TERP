@@ -1,6 +1,7 @@
 const db = require("../../db/dbConnection")
 const { db: db2 } = require("../../db/db2")
 const { array } = require("yup")
+const { error } = require("winston")
 
 const addPurchageOrder = (req, resp) => {
 	const {
@@ -170,9 +171,10 @@ const newAddPurchaseOrder = async (req, resp) => {
 			const [data] = await db2.execute(
 				`INSERT INTO purchase_order (vendor_id, PO_date, supplier_invoice_number, supplier_invoice_date, created, user_id) 
 				VALUES ( ?, ?, ?, ?, ?, ?)`,
-				[vendor_id, created, supplier_invoice_number || "", formattedSupplierInvoiceDate || "", created, user_id]
+				[vendor_id, created, supplier_invoice_number || "", formattedSupplierInvoiceDate || null, created, user_id]
 			);
-			await db2.execute("CALL Purchase_order_Number(?)", [data.insertId])
+			// await db2.execute("CALL Purchase_order_Number(?)", [data.insertId])
+			await db2.execute("CALL Purchase_Order_New(?)", [data.insertId])
 			// Send the response
 			resp.status(200).json({ success: true, message: "Success", po_id: data.insertId });
 		}
@@ -215,11 +217,12 @@ const getNewPurchaseOrder = async (request, response) => {
 
 		// Base query for selecting purchase orders
 		let query = `
-				SELECT *, 
-				DATE_FORMAT(purchase_order.created, '%Y-%m-%d') AS created, 
-				DATE_FORMAT(purchase_order.supplier_invoice_date, '%Y-%m-%d') AS supplier_invoice_date
-				FROM purchase_order
-			`;
+				SELECT purchase_order.*, 
+       DATE_FORMAT(purchase_order.created, '%Y-%m-%d') AS created, 
+       DATE_FORMAT(purchase_order.supplier_invoice_date, '%Y-%m-%d') AS supplier_invoice_date, 
+       dropdown_currency.currency AS currency
+FROM purchase_order
+LEFT JOIN dropdown_currency ON dropdown_currency.currency_id = purchase_order.FX_ID`;
 
 		// Add a condition to filter by PO_STATUS if the status is provided
 		if (status !== undefined) {
@@ -418,6 +421,72 @@ const updatePurchaseOrder = (request, response) => {
 	)
 }
 
+// const newUpdatePurchaseOrder = (req, res) => {
+// 	const {
+// 		po_id,
+// 		vendor_id,
+// 		created,
+// 		supplier_invoice_number,
+// 		supplier_invoice_date,
+// 	} = req.body;
+
+// 	// Call the function to get Vendor_name
+
+// 	if (!created || created == "0000-00-00" || created == "") {
+// 		db.query(
+// 			`select * from Error_Messages where error_id =?`
+// 			, [26], (err, data) => {
+// 				if (err) throw err;
+
+// 				res.status(200).send({
+// 					success: false,
+// 					message_en: data[0].Error_en,
+// 					message_th: data[0].Error_th,
+// 				});
+// 			})
+// 		// If check message is null, show the success message
+
+// 	}
+// 	else {
+// 		db.query(`SELECT Vendor_name(?) AS vendor_name`, [vendor_id], (err, result) => {
+// 			if (err) {
+// 				return res.status(500).json({ success: false, message: "Internal Server Error" });
+// 			}
+
+// 			// Check if result has data
+// 			if (result.length === 0) {
+// 				return res.status(404).json({ success: false, message: "Vendor not found" });
+// 			}
+
+// 			const vendor_name = result[0].vendor_name;
+
+// 			// Update purchase order
+// 			const sql = `UPDATE purchase_order 
+// 						 SET Vendor_name = ?, 
+// 							 vendor_id = ?, 
+// 							 created = ?, 
+// 							 supplier_invoice_number = ?, 
+// 							 supplier_invoice_date = ? 
+// 						 WHERE po_id = ?`;
+
+// 			db.query(sql, [
+// 				vendor_name,
+// 				vendor_id,
+// 				created,
+// 				supplier_invoice_number || null,
+// 				supplier_invoice_date || null,
+// 				po_id
+// 			], (err, result) => {
+// 				if (err) {
+// 					return res.status(500).json({ success: false, message: "Internal Server Error" });
+// 				}
+// 				return res.status(200).json({ success: true, message: "Success" });
+// 			});
+// 		});
+// 	}
+// };
+
+
 const newUpdatePurchaseOrder = (req, res) => {
 	const {
 		po_id,
@@ -427,12 +496,12 @@ const newUpdatePurchaseOrder = (req, res) => {
 		supplier_invoice_date,
 	} = req.body;
 
-	// Call the function to get Vendor_name
-
-	if (!created || created == "0000-00-00" || created == "") {
+	// Check if 'created' is null or invalid
+	if (!created || created === "0000-00-00" || created === "") {
 		db.query(
-			`select * from Error_Messages where error_id =?`
-			, [26], (err, data) => {
+			`SELECT * FROM Error_Messages WHERE error_id = ?`,
+			[26],
+			(err, data) => {
 				if (err) throw err;
 
 				res.status(200).send({
@@ -440,48 +509,56 @@ const newUpdatePurchaseOrder = (req, res) => {
 					message_en: data[0].Error_en,
 					message_th: data[0].Error_th,
 				});
-			})
-		// If check message is null, show the success message
-
+			}
+		);
+		return; // Exit after sending error response
 	}
-	else {
-		db.query(`SELECT Vendor_name(?) AS vendor_name`, [vendor_id], (err, result) => {
-			if (err) {
-				return res.status(500).json({ success: false, message: "Internal Server Error" });
-			}
 
-			// Check if result has data
-			if (result.length === 0) {
-				return res.status(404).json({ success: false, message: "Vendor not found" });
-			}
+	// Process 'supplier_invoice_date' and other fields
+	const formattedInvoiceDate =
+		supplier_invoice_date === "0000-00-00" || !supplier_invoice_date
+			? null
+			: supplier_invoice_date;
 
-			const vendor_name = result[0].vendor_name;
+	db.query(`SELECT Vendor_name(?) AS vendor_name`, [vendor_id], (err, result) => {
+		if (err) {
+			return res.status(500).json({ success: false, message: err.message });
+		}
 
-			// Update purchase order
-			const sql = `UPDATE purchase_order 
-						 SET Vendor_name = ?, 
-							 vendor_id = ?, 
-							 created = ?, 
-							 supplier_invoice_number = ?, 
-							 supplier_invoice_date = ? 
-						 WHERE po_id = ?`;
+		if (result.length === 0) {
+			return res.status(404).json({ success: false, message: "Vendor not found" });
+		}
 
-			db.query(sql, [
+		const vendor_name = result[0].vendor_name;
+
+		const sql = `UPDATE purchase_order 
+				   SET Vendor_name = ?, 
+					   vendor_id = ?, 
+					   created = ?, 
+					   supplier_invoice_number = ?, 
+					   supplier_invoice_date = ? 
+				   WHERE po_id = ?`;
+
+		db.query(
+			sql,
+			[
 				vendor_name,
 				vendor_id,
 				created,
 				supplier_invoice_number || null,
-				supplier_invoice_date || null,
-				po_id
-			], (err, result) => {
+				formattedInvoiceDate, // Use formatted date here
+				po_id,
+			],
+			(err, result) => {
 				if (err) {
-					return res.status(500).json({ success: false, message: "Internal Server Error" });
+					return res.status(500).json({ success: false, message: err.message });
 				}
 				return res.status(200).json({ success: true, message: "Success" });
-			});
-		});
-	}
+			}
+		);
+	});
 };
+
 const purchaseOrderDetails = (req, res) => {
 	const podId = req.body.pod_id
 
@@ -533,7 +610,7 @@ const purchaseOrderDetails = (req, res) => {
 	)
 }
 
-const addPurchaseOrderDetails = async (req, res) => {
+/* const addPurchaseOrderDetails = async (req, res) => {
 	const { data, po_id } = req.body;
 	try {
 		for (const v of data) {
@@ -562,7 +639,83 @@ const addPurchaseOrderDetails = async (req, res) => {
 	} catch (error) {
 		return res.status(500).json({ success: false, message: "An error occurred", error: error.message });
 	}
+}; */
+
+
+const addPurchaseOrderDetails = async (req, res) => {
+	const { data, po_id } = req.body;
+	try {
+		for (const v of data) {
+			const {
+				unit_count_id,
+				pod_quantity,
+				pod_price,
+				pod_vat,
+				pod_wht_id,
+				pod_crate,
+				POD_Selection,
+			} = v;
+
+			// Generate pod_code based on the logic in the procedure
+			const podcodeQuery = `
+                SELECT CONCAT(
+                    SUBSTR(po_code, 4, 11),
+                    LPAD(
+                        (SELECT COUNT(a.pod_id) + 1 
+                         FROM purchase_order_details AS a 
+                         WHERE a.po_id = ?), 
+                        3, '0'
+                    )
+                ) AS pod_code 
+                FROM purchase_order 
+                WHERE po_id = ?`;
+			const [podcodeResult] = await new Promise((resolve, reject) => {
+				db.query(podcodeQuery, [po_id, po_id], (err, result) => {
+					if (err) reject(err);
+					else resolve(result);
+				});
+			});
+			const pod_code = podcodeResult.pod_code;
+
+			// Insert into purchase_order_details
+			const insertQuery = `
+                INSERT INTO purchase_order_details (
+                    po_id, pod_code, pod_type_id, pod_item, pod_quantity, 
+                    unit_count_id, pod_price, pod_vat, pod_wht_id, 
+                    pod_crate, accounting_id, POD_SELECTION
+                ) 
+                SELECT 
+                    ?, ?, Type, Item, ?, 
+                    ?, ?, ?, ?, 
+                    ?, chart_of_accounts, ?
+                FROM POD_Selection_List 
+                WHERE ID = ?`;
+			await new Promise((resolve, reject) => {
+				db.query(insertQuery, [
+					po_id, pod_code, pod_quantity, unit_count_id, pod_price,
+					pod_vat, pod_wht_id, pod_crate, POD_Selection, POD_Selection
+				], (err) => {
+					if (err) reject(err);
+					else resolve();
+				});
+			});
+
+			// Call Update_PO_Total stored procedure
+			const updateTotalQuery = `CALL Update_PO_Total(?)`;
+			await new Promise((resolve, reject) => {
+				db.query(updateTotalQuery, [po_id], (err) => {
+					if (err) reject(err);
+					else resolve();
+				});
+			});
+		}
+
+		return res.status(200).json({ success: true, message: "Success" });
+	} catch (error) {
+		return res.status(500).json({ success: false, message: "An error occurred", error: error.message });
+	}
 };
+
 
 
 const getPurchaseOrderDetails = (req, res) => {
@@ -885,6 +1038,76 @@ const purchaseOrderPayment = async (req, res) => {
 	}
 };
 
+const RecordCommissionPayment = async (req, res) => {
+	try {
+		const {
+			Vendor_ID,
+			Payment_date,
+			Payment_Channel,
+			FX_Payment,
+			FX_ID,
+			FX_Rate,
+			Intermittent_bank_charges,
+			Local_bank_Charges,
+			Client_payment_ref,
+			Bank_Ref,
+			Notes
+		} = req.body;
+
+		// Log the request body for debugging
+
+		await db.query(
+			`INSERT INTO Expense_payment(Vendor_ID, 
+				Payment_date, 
+				Payment_Channel, 
+				FX_Payment, 
+				FX_ID, 
+				FX_Rate, 
+				Intermittent_bank_charges,  
+				Local_bank_Charges, 
+				Client_payment_ref, 
+				Bank_Ref, Notes, V, C) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`, [Vendor_ID,
+			Payment_date,
+			Payment_Channel,
+			FX_Payment,
+			FX_ID,
+			FX_Rate,
+			Intermittent_bank_charges,
+			Local_bank_Charges,
+			Client_payment_ref,
+			Bank_Ref, Notes || null, null, 1],
+			(error, data) => {
+				if (error) {
+					resp.status(500).send({
+						success: false,
+						message: error,
+					})
+					return
+				}
+
+				// db2.execute("CALL Expense_payment()")
+				db.query('CALL Commission_Payement_Record(?)', [data.insertId], (error, results) => {
+					if (error) throw error;
+				})
+				res.status(200).send({
+					success: true,
+					message: "Added Successfully",
+					data: data.insertId
+				})
+				return
+			},
+		)
+
+	} catch (error) {
+		// Send error response
+		return res.status(500).json({
+			success: false,
+			message: 'Internal server error',
+			error: error.message,
+		});
+	}
+};
+
 
 const purchaseOrderPaymentDetails = (req, res) => {
 	const paymentDetailsArray = req.body.paymentDetailsArray;
@@ -931,6 +1154,54 @@ const purchaseOrderPaymentDetails = (req, res) => {
 	// Start processing the first item in the array
 	processDetails(0);
 };
+
+
+const RecordCommissionPaymentDetails = (req, res) => {
+	const paymentDetailsArray = req.body.paymentDetailsArray;
+
+	// Check if paymentDetailsArray exists, is an array, and is not empty
+	if (!paymentDetailsArray || !Array.isArray(paymentDetailsArray) || paymentDetailsArray.length === 0) {
+		return res.status(400).json({
+			success: false,
+			message: 'No payment details provided or invalid format',
+		});
+	}
+
+	// Function to process payment details one by one
+	const processDetails = (index) => {
+		// If all details have been processed, send a success response
+		if (index >= paymentDetailsArray.length) {
+			return res.status(200).json({
+				success: true,
+				message: "Data inserted successfully"
+			});
+		}
+
+		const {
+			Payment_ID, Client_ID, Invoice_ID, Paid_Amount
+		} = paymentDetailsArray[index];
+
+		// Process each payment detail by inserting into the table
+		const query = `INSERT INTO Commissions (Payment_ID, Client_ID, Invoice_ID, Commision_FX_Paid) VALUES (?, ?, ?, ?)`;
+		db.query(query, [Payment_ID, Client_ID, Invoice_ID, Paid_Amount], (error, results) => {
+			if (error) {
+				// If an error occurs, send an error response and stop further processing
+				return res.status(500).json({
+					success: false,
+					message: 'Error inserting payment details',
+					error: error.message
+				});
+			}
+
+			// Proceed to the next payment detail after successful insertion
+			processDetails(index + 1);
+		});
+	};
+
+	// Start processing the first item in the array
+	processDetails(0);
+};
+
 
 const purchaseOrderListByVendor = async (req, res) => {
 	try {
@@ -1076,6 +1347,45 @@ const DeletePurchase = async (req, res) => {
 		});
 	}
 }
+
+
+const CancelPurchaseOrder = async (req, res) => {
+	try {
+		// Extract `po_id` from request body
+		const { po_id } = req.body;
+
+		if (!po_id) {
+			return res.status(400).json({ success: false, message: "Purchase Order ID is required." });
+		}
+
+		// Delete from purchase_order_details
+		const deleteDetailsQuery = `DELETE FROM purchase_order_details WHERE po_id = ?`;
+		await db.query(deleteDetailsQuery, [po_id], (err, result) => {
+			if (err) throw err;
+		});
+
+
+		// Delete from purchase_order
+		const deleteOrderQuery = `DELETE FROM purchase_order WHERE po_id = ?`;
+		await db.query(deleteOrderQuery, [po_id], (err, result) => {
+			if (err) reject(err);
+		});
+
+		// Send success response
+		return res.status(200).json({
+			success: true,
+			message: "Purchase order and its details Cancelled successfully.",
+		});
+	} catch (error) {
+		// Send error response
+		return res.status(500).json({
+			success: false,
+			message: "An error occurred while deleting the purchase order.",
+			error: error.message,
+		});
+	}
+};
+
 
 const PurchaseVendorStatement = async (req, res) => {
 	try {
@@ -1357,7 +1667,7 @@ const RecordCommission = async (req, res) => {
 	try {
 		const { client_id, consignee_id } = req.body;
 		// Properly await the result of the procedure call
-		const [data] = await db2.execute("CALL Commission_list(?,?)", [client_id, consignee_id]);
+		const [data] = await db2.execute("CALL Commission_list(?,?)", [client_id, consignee_id || 0]);
 		// Send the response with the data
 
 		res.status(200).json({ success: true, message: "Success", data: data[0] });
@@ -1366,6 +1676,105 @@ const RecordCommission = async (req, res) => {
 		console.error(e.message); // Log the error for debugging
 		res.status(500).json({ message: "Error has occurred", error: e.message });
 	}
+};
+
+
+const DebitNotes = async (req, res) => {
+	try {
+		const {
+			Debit_date,
+			PO_ID,
+			Vendor_ID,
+			FX_ID,
+			User_id
+		} = req.body;
+
+		// Log the request body for debugging
+
+		await db.query(
+			`INSERT INTO Debit_Notes(Debit_date,
+			PO_ID,
+			Vendor_ID,
+			FX_ID, User_id) VALUES(?, ?, ?, ?, ?)`, [Debit_date,
+			PO_ID,
+			Vendor_ID,
+			FX_ID, User_id],
+			(error, data) => {
+				if (error) {
+					resp.status(500).send({
+						success: false,
+						message: error,
+					})
+					return
+				}
+
+				// db2.execute("CALL Expense_payment()")
+				db.query('CALL Debit_Note_New(?)', [data.insertId], (error, results) => {
+					if (error) throw error;
+				})
+				res.status(200).send({
+					success: true,
+					message: "Added  Successfully",
+					data: data.insertId
+				})
+				return
+			},
+		)
+
+	} catch (error) {
+		// Send error response
+		return res.status(500).json({
+			success: false,
+			message: 'Internal server error',
+			error: error.message,
+		});
+	}
+}
+
+const DebitNotesDetails = (req, res) => {
+	const DebitNotesDetails = req.body.DebitNotesDetailsArray;
+
+	// Check if paymentDetailsArray exists, is an array, and is not empty
+	if (!DebitNotesDetails || !Array.isArray(DebitNotesDetails) || DebitNotesDetails.length === 0) {
+		return res.status(400).json({
+			success: false,
+			message: 'No payment details provided or invalid format',
+		});
+	}
+
+	// Function to process payment details one by one
+	const processDetails = (index) => {
+		// If all details have been processed, send a success response
+		if (index >= DebitNotesDetails.length) {
+			return res.status(200).json({
+				success: true,
+				message: "Data inserted successfully"
+			});
+		}
+
+		const {
+			Debit_Note_ID, POD_ID, Item, QTY, Unit, Debit_Amount
+		} = DebitNotesDetails[index];
+
+		// Process each payment detail by inserting into the table
+		const query = `INSERT INTO Debit_Note_Details (Debit_Note_ID, POD_ID, Item, QTY, Unit, Debit_Amount) VALUES (?, ?, ?, ?, ?, ?)`;
+		db.query(query, [Debit_Note_ID, POD_ID, Item, QTY, Unit, Debit_Amount], (error, results) => {
+			if (error) {
+				// If an error occurs, send an error response and stop further processing
+				return res.status(500).json({
+					success: false,
+					message: 'Error inserting payment details',
+					error: error.message
+				});
+			}
+
+			// Proceed to the next payment detail after successful insertion
+			processDetails(index + 1);
+		});
+	};
+
+	// Start processing the first item in the array
+	processDetails(0);
 };
 
 module.exports = {
@@ -1398,5 +1807,9 @@ module.exports = {
 	expensePaymentSlip,
 	InvoicePaymentSlip,
 	PurchaseOrderPackagingPayable,
-	RecordCommission
+	RecordCommission,
+	RecordCommissionPayment,
+	RecordCommissionPaymentDetails,
+	DebitNotes,
+	DebitNotesDetails
 }
