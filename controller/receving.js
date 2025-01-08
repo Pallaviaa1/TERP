@@ -49,6 +49,86 @@ const getAllReceving_bp = async (req, res) => {
 	}
 }
 
+// const addReceving = async (req, res) => {
+// 	const {
+// 		pod_code,
+// 		rcv_crate,
+// 		rcvd_qty,
+// 		rcv_crate_weight,
+// 		rcv_gross_weight,
+// 		rcvd_unit_id,
+// 		pod_type_id,
+// 		user_id
+// 	} = req.body;
+
+// 	try {
+// 		const procedureName = +pod_type_id === 3 ? "New_Receiving" : "New_Receiving_BP";
+
+// 		let result;
+// 		if (procedureName === "New_Receiving") {
+// 			// Call the stored procedure with OUT parameters
+// 			const [rows] = await db2.query(
+// 				`CALL ${procedureName}(?, ?, ?, ?, ?, ?, ?, @Message_EN, @Message_TH, @Message_EN1, @Message_TH1)`,
+// 				[
+// 					pod_code,
+// 					rcv_crate,
+// 					rcvd_qty,
+// 					rcv_crate_weight,
+// 					rcv_gross_weight,
+// 					rcvd_unit_id,
+// 					user_id
+// 				]
+// 			);
+
+// 			// Fetch the OUT parameters
+// 			const [outParams] = await db2.query('SELECT @Message_EN AS Message_EN, @Message_TH AS Message_TH, @Message_EN1 AS Message_EN1, @Message_TH1 AS Message_TH1');
+// 			result = outParams[0];
+
+// 			if (result.Message_EN || result.Message_TH) {
+// 				// If error messages are present
+// 				res.status(200).json({
+// 					success: false,
+// 					message: { Message_EN: result.Message_EN, Message_TH: result.Message_TH },
+// 					data: 1
+// 				});
+// 			} else {
+// 				// If success messages are present
+// 				res.status(200).json({
+// 					success: true,
+// 					message: { Message_EN: result.Message_EN1, Message_TH: result.Message_TH1 },
+// 					data: 1
+// 				});
+// 			}
+// 		} else {
+// 			// Call the stored procedure without OUT parameters
+// 			const [rows] = await db2.query(
+// 				`CALL ${procedureName}(?, ?, ?, ?, ?, ?, ?)`,
+// 				[
+// 					pod_code,
+// 					rcv_crate,
+// 					rcvd_qty,
+// 					rcv_crate_weight,
+// 					rcv_gross_weight,
+// 					rcvd_unit_id,
+// 					user_id
+// 				]
+// 			);
+
+// 			// Directly send a success message
+// 			res.status(200).json({
+// 				success: true,
+// 				message: "Success: New_Receiving_BP executed",
+// 				data: 2
+// 			});
+// 		}
+// 	} catch (e) {
+// 		res.status(500).json({
+// 			message: "Error Occurred",
+// 			error: e.message,
+// 		});
+// 	}
+// };
+
 const addReceving = async (req, res) => {
 	const {
 		pod_code,
@@ -62,22 +142,43 @@ const addReceving = async (req, res) => {
 	} = req.body;
 
 	try {
-		const procedureName = +pod_type_id === 3 ? "New_Receiving" : "New_Receiving_BP";
+		const procedureName = +pod_type_id === 3 ? "Receiving_NEW" : "New_Receiving_BP";
 
 		let result;
-		if (procedureName === "New_Receiving") {
+		if (procedureName === "Receiving_NEW") {
 			// Call the stored procedure with OUT parameters
-			const [rows] = await db2.query(
-				`CALL ${procedureName}(?, ?, ?, ?, ?, ?, ?, @Message_EN, @Message_TH, @Message_EN1, @Message_TH1)`,
+
+			const [podDetails] = await db2.query(
+				`SELECT pod_item, pod_id FROM purchase_order_details WHERE pod_code = ?`,
+				[pod_code]
+			);
+
+			const { pod_item, pod_id } = podDetails[0];
+
+			// Insert into receiving table
+			// Insert into receiving table
+			const [insertResult] = await db2.query(
+				`INSERT INTO receiving (
+					rcvd_item, pod_code, rcv_crate, rcvd_qty, rcv_crate_weight, 
+					rcv_gross_weight, rcvd_unit_id, pod_id, user_id
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				[
+					pod_item,
 					pod_code,
 					rcv_crate,
 					rcvd_qty,
 					rcv_crate_weight,
 					rcv_gross_weight,
 					rcvd_unit_id,
-					user_id
+					pod_id,
+					user_id,
 				]
+			);
+
+			// Pass the inserted ID to the stored procedure
+			await db2.query(
+				`CALL ${procedureName}(?, @Message_EN, @Message_TH, @Message_EN1, @Message_TH1)`,
+				[insertResult.insertId] // Assuming the procedure expects the `insertId` of the new row
 			);
 
 			// Fetch the OUT parameters
@@ -128,7 +229,6 @@ const addReceving = async (req, res) => {
 		});
 	}
 };
-
 
 module.exports = {
 	getAllReceving,

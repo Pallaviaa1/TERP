@@ -2613,6 +2613,52 @@ const getCurrency = async (req, resp) => {
 
 
 
+// const getIft = async (req, resp) => {
+// 	try {
+// 		// First, fetch the main `itf` data as you are already doing
+// 		const [itfData] = await db2.query(`
+//             SELECT 
+//     itf.itf_code,
+//     itf.itf_id,
+//     itf.brand,
+// 	itf.Internal_Name_EN AS  ITF_Internal_Name_EN,
+// 	itf.Internal_Name_TH AS  ITF_Internal_Name_TH,
+//     ITF_Produce(itf.itf_id) AS itf_produce,
+//     itf_Net_Weight(itf.itf_id) AS itf_Net_Weight,
+//     itf.itf_name_en,
+// 	itf.itf_name_th AS ITF_name_th,
+// 	itf.ITF_ean_adjustment,
+//     Calculated_ITF_Gross_Weight(itf.itf_id) AS Calculated_ITF_Gross_Weight,
+//     ITF_VVSW(itf.itf_id) AS ITF_VVSW,
+//     itf_box_pallet(itf.itf_id) AS itf_box_pallet,
+//     itf.status,
+// 	itf.Notes,
+//     CONCAT(itf.itf_name_th, ITF_EAN_PACKAGING(itf.itf_id)) AS itf_name_th
+// FROM 
+//     itf
+// WHERE 
+//     ITF_Produce_Status(itf.itf_id) = 1
+// ORDER BY
+//     CAST(itf_classification_ID(itf.itf_id) AS INT),
+//     PDF_Customs_Produce_Name_ITF(itf.itf_id),
+//     itf_Net_Weight(itf.itf_id);
+// `);
+// 		// Send the modified results as the response
+// 		resp.status(200).send({
+// 			success: true,
+// 			message: "Data fetched and processed successfully",
+// 			data: itfData,
+// 		});
+// 	} catch (e) {
+// 		// Handle any errors
+// 		resp.status(500).send({
+// 			success: false,
+// 			message: e.message || "An error occurred",
+// 		});
+// 	}
+// };
+
+
 const getIft = async (req, resp) => {
 	try {
 		// First, fetch the main `itf` data as you are already doing
@@ -2621,16 +2667,18 @@ const getIft = async (req, resp) => {
     itf.itf_code,
     itf.itf_id,
     itf.brand,
+	itf.Internal_Name_EN AS  ITF_Internal_Name_EN,
+	itf.Internal_Name_TH AS  ITF_Internal_Name_TH,
     ITF_Produce(itf.itf_id) AS itf_produce,
-    itf_Net_Weight(itf.itf_id) AS itf_Net_Weight,
+    itf.ITF_NW AS itf_Net_Weight,
     itf.itf_name_en,
+	itf.itf_name_th AS ITF_name_th,
 	itf.ITF_ean_adjustment,
-    Calculated_ITF_Gross_Weight(itf.itf_id) AS Calculated_ITF_Gross_Weight,
-    ITF_VVSW(itf.itf_id) AS ITF_VVSW,
-    itf_box_pallet(itf.itf_id) AS itf_box_pallet,
+    itf.ITF_GW AS Calculated_ITF_Gross_Weight,
+    itf.ITF_VVSW AS ITF_VVSW,
+    itf.ITF_PALLET AS itf_box_pallet,
     itf.status,
-	itf.Notes,
-    CONCAT(itf.itf_name_th, ITF_EAN_PACKAGING(itf.itf_id)) AS itf_name_th
+	itf.Notes
 FROM 
     itf
 WHERE 
@@ -2638,7 +2686,7 @@ WHERE
 ORDER BY
     CAST(itf_classification_ID(itf.itf_id) AS INT),
     PDF_Customs_Produce_Name_ITF(itf.itf_id),
-    itf_Net_Weight(itf.itf_id);
+    itf.ITF_NW;
 `);
 		// Send the modified results as the response
 		resp.status(200).send({
@@ -3020,68 +3068,68 @@ const statisticsDropdownGraphSelection = async (req, res) => {
 }
 
 const ConsigneeStatisticsGraph = async (req, res) => {
-    const { Selection_id, Consignee_id, Client_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE } = req.body;
+	const { Selection_id, Consignee_id, Client_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE } = req.body;
 
-    try {
-        // Fetch data from the stored procedure
-        const [data] = await db2.query("CALL Consignee_statistics_Graph(?,?,?,?,?,?,?)", [
-            Selection_id, Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE
-        ]);
+	try {
+		// Fetch data from the stored procedure
+		const [data] = await db2.query("CALL Consignee_statistics_Graph(?,?,?,?,?,?,?)", [
+			Selection_id, Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE
+		]);
 
-        // Extract Selected_Period and Compared_To_Period from data
-        const graphData = data.slice(0, 2);
+		// Extract Selected_Period and Compared_To_Period from data
+		const graphData = data.slice(0, 2);
 
-        // Extract numeric values from Selected_Period and Compared_To_Period
-        if (Selection_id == 4) {
-            const selectedPeriod = graphData[0].map(item => parseFloat(item.Selected_Period));
-            const comparedToPeriod = graphData[1].map(item => parseFloat(item.Compared_To_Period));
+		// Extract numeric values from Selected_Period and Compared_To_Period
+		if (Selection_id == 4) {
+			const selectedPeriod = graphData[0].map(item => parseFloat(item.Selected_Period));
+			const comparedToPeriod = graphData[1].map(item => parseFloat(item.Compared_To_Period));
 
-            // Combine both periods into a single array for comparison
-            const combinedValues = [...selectedPeriod, ...comparedToPeriod];
+			// Combine both periods into a single array for comparison
+			const combinedValues = [...selectedPeriod, ...comparedToPeriod];
 
-            // Find the max and min values
-            const maxValue = Math.max(...combinedValues) + 1;
-            const minValue = Math.min(...combinedValues) - 1;
+			// Find the max and min values
+			const maxValue = Math.max(...combinedValues) + 1;
+			const minValue = Math.min(...combinedValues) - 1;
 
-            // Send the response with the calculated values
-            res.status(200).send({
-                success: true,
-                message: "Getting Data Successfully",
-                GraphData: graphData,
-                selectedPeriod: selectedPeriod,
-                comparedToPeriod: comparedToPeriod,
-                MaxPlusOne: maxValue,
-                MinMinusOne: minValue,
-            });
-        } else {
-            const selectedPeriod = graphData[1].map(item => parseFloat(item.Selected_Period));
-            const comparedToPeriod = graphData[0].map(item => parseFloat(item.Compared_To_Period));
+			// Send the response with the calculated values
+			res.status(200).send({
+				success: true,
+				message: "Getting Data Successfully",
+				GraphData: graphData,
+				selectedPeriod: selectedPeriod,
+				comparedToPeriod: comparedToPeriod,
+				MaxPlusOne: maxValue,
+				MinMinusOne: minValue,
+			});
+		} else {
+			const selectedPeriod = graphData[1].map(item => parseFloat(item.Selected_Period));
+			const comparedToPeriod = graphData[0].map(item => parseFloat(item.Compared_To_Period));
 
-            // Combine both periods into a single array for comparison
-            const combinedValues = [...selectedPeriod, ...comparedToPeriod];
+			// Combine both periods into a single array for comparison
+			const combinedValues = [...selectedPeriod, ...comparedToPeriod];
 
-            // Find the max and min values
-            const maxValue = Math.max(...combinedValues) + 1;
-            const minValue = Math.min(...combinedValues) - 1;
+			// Find the max and min values
+			const maxValue = Math.max(...combinedValues) + 1;
+			const minValue = Math.min(...combinedValues) - 1;
 
-            // Send the response with the calculated values
-            res.status(200).send({
-                success: true,
-                message: "Getting Data Successfully",
-                GraphData: graphData,
-                selectedPeriod: selectedPeriod,
-                comparedToPeriod: comparedToPeriod,
-                MaxPlusOne: maxValue,
-                MinMinusOne: minValue,
-            });
-        }
-    } catch (error) {
-        console.error("Error:", error.message); // Log error for debugging
-        res.status(500).send({
-            success: false,
-            message: error.message,
-        });
-    }
+			// Send the response with the calculated values
+			res.status(200).send({
+				success: true,
+				message: "Getting Data Successfully",
+				GraphData: graphData,
+				selectedPeriod: selectedPeriod,
+				comparedToPeriod: comparedToPeriod,
+				MaxPlusOne: maxValue,
+				MinMinusOne: minValue,
+			});
+		}
+	} catch (error) {
+		console.error("Error:", error.message); // Log error for debugging
+		res.status(500).send({
+			success: false,
+			message: error.message,
+		});
+	}
 };
 
 
@@ -3104,6 +3152,7 @@ const ConsigneeStatisticsTopITF = async (req, res) => {
 		})
 	}
 }
+
 
 module.exports = {
 	addPackage,

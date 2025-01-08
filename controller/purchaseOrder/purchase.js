@@ -175,6 +175,8 @@ const newAddPurchaseOrder = async (req, resp) => {
 			);
 			// await db2.execute("CALL Purchase_order_Number(?)", [data.insertId])
 			await db2.execute("CALL Purchase_Order_New(?)", [data.insertId])
+			await db2.execute("CALL Purchase_Order_New_B(?)", [data.insertId])
+
 			// Send the response
 			resp.status(200).json({ success: true, message: "Success", po_id: data.insertId });
 		}
@@ -700,14 +702,16 @@ const addPurchaseOrderDetails = async (req, res) => {
 				});
 			});
 
+			await db2.execute("CALL Purchase_Order_New_B(?)", [po_id])
+
 			// Call Update_PO_Total stored procedure
-			const updateTotalQuery = `CALL Update_PO_Total(?)`;
-			await new Promise((resolve, reject) => {
-				db.query(updateTotalQuery, [po_id], (err) => {
-					if (err) reject(err);
-					else resolve();
-				});
-			});
+			// const updateTotalQuery = `CALL Update_PO_Total(?)`;
+			// await new Promise((resolve, reject) => {
+			// 	db.query(updateTotalQuery, [po_id], (err) => {
+			// 		if (err) reject(err);
+			// 		else resolve();
+			// 	});
+			// });
 		}
 
 		return res.status(200).json({ success: true, message: "Success" });

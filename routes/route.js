@@ -261,7 +261,8 @@ const {
 	QuotationMarkup,
 	QuotationCostModal,
 	OrderCostModal,
-	InvoiceCostModal
+	InvoiceCostModal,
+	ITFgenerateName
 } = require("../controller/quotation")
 const {
 	getTransportation_Supplier,
@@ -715,6 +716,7 @@ router.post("/QuotationMarkup", QuotationMarkup)
 router.post("/QuotationCostModal", QuotationCostModal)
 router.post("/OrderCostModal", OrderCostModal)
 router.post("/InvoiceCostModal", InvoiceCostModal)
+router.post("/ITFgenerateName", ITFgenerateName)
 router.get("/getFreight_Supplier", getFreight_Supplier)
 
 router.post("/deleteQuotation", deleteQuotation)

@@ -38,13 +38,31 @@ const addsorting = async (req, res) => {
 		user_id
 	} = req.body
 	try {
-		const [data] = await db2.execute("CALL New_Sorting(?,?,?,?,?,?)", [
-			receiving_id,
-			sorting_good,
-			sorted_crates,
-			sorting_notes,
-			blue_crates,
-			user_id
+
+		const [podDetails] = await db2.query(
+			`SELECT pod_code FROM receiving WHERE receiving_id  = ?`,
+			[receiving_id]
+		);
+		const { pod_code } = podDetails[0];
+
+		const [insertResult] = await db2.query(
+			`INSERT INTO sorting (
+				 pod_code, sorted_crates, receiving_id, sorting_good, 
+				blue_crates, sorting_notes, user_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			[
+				pod_code,
+				sorted_crates,
+				receiving_id,
+				sorting_good,
+				blue_crates,
+				sorting_notes,
+				user_id,
+			]
+		);
+
+		const [data] = await db2.execute("CALL Sorting_NEW(?)", [
+			insertResult.insertId
 		])
 		res.status(200).json({
 			message: "Done",

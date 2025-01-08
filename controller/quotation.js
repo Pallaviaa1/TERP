@@ -912,7 +912,7 @@ const RecalculateQuotation = async (req, res) => {
 	const { quotation_id, user_id } = req.body
 	try {
 		const [data] = await db2.execute("CALL Quotation_Pricing_Reset(?,?)", [quotation_id, user_id])
-		
+
 		const [details] = await db2.execute("CALL Quotation_Calculate(?,?, @Message_EN, @Message_TH, @Freight_Cost, @Message_EN_OK, @Message_TH_OK)", [quotation_id, user_id])
 		const [results] = await db2.execute("SELECT @Message_EN AS Message_EN, @Message_TH AS Message_TH, @Freight_Cost AS Freight_Cost, @Message_EN_OK AS Message_EN_OK, @Message_TH_OK AS Message_TH_OK");
 
@@ -1080,10 +1080,10 @@ const quotation_pdf_delivery_by = async (req, res) => {
 const QuotationPDF = async (req, res) => {
 	const { quotation_id } = req.body;
 	const baseUrl = "https://terp.siameats.net/api/images/";
-  
+
 	try {
-	  const [quotationDetailsArray] = await db2.execute(
-		`SELECT 
+		const [quotationDetailsArray] = await db2.execute(
+			`SELECT 
 		  quotation_details.*, 
 		  itf.images as itf_img, 
 		  setup_produce.images as produce_img, 
@@ -1105,81 +1105,81 @@ const QuotationPDF = async (req, res) => {
 		  CAST(itf_classification_ID(quotation_details.ITF) AS INT),
 		  PDF_Customs_Produce_Name_ITF(quotation_details.ITF),
 		  (quotation_details.QOD_NW / quotation_details.QOD_Box);`,
-		[quotation_id]
-	  );
-  
-	  for (let element of quotationDetailsArray) {
-		// Attach base URL to image properties explicitly:
-		if (element.itf_img) {
-		  element.itf_img = baseUrl + element.itf_img;
+			[quotation_id]
+		);
+
+		for (let element of quotationDetailsArray) {
+			// Attach base URL to image properties explicitly:
+			if (element.itf_img) {
+				element.itf_img = baseUrl + element.itf_img;
+			}
+			if (element.produce_img) {
+				element.produce_img = baseUrl + element.produce_img;
+			}
+			if (element.ean_img) {
+				element.ean_img = baseUrl + element.ean_img;
+			}
+			if (element.box_img) {
+				element.box_img = baseUrl + element.box_img;
+			}
+
+			// ... your existing logic for fetching additional details ...
+
+			const sql1 = `SELECT ITF_Name_EN(${element.ITF}) AS ITF_Name`;
+			const [rows1] = await db2.query(sql1);
+			element.ITF_Name = rows1[0].ITF_Name;
+
+			const sql2 = `SELECT ITF_Scientific_name(${element.ITF}) AS ITF_Scientific_name`;
+			const [rows2] = await db2.query(sql2);
+			element.ITF_Scientific_name = rows2[0].ITF_Scientific_name;
+
+			const sql3 = `SELECT ITF_HSCODE(${element.ITF}) AS ITF_HSCODE`;
+			const [rows3] = await db2.query(sql3);
+			element.ITF_HSCODE = rows3[0].ITF_HSCODE;
+
+			const sql4 = `SELECT PDF_Quotation_Unit_price(${element.QOD_ID}) AS Unit_price`;
+			const [rows4] = await db2.query(sql4);
+			element.Unit_price = rows4[0].Unit_price;
 		}
-		if (element.produce_img) {
-		  element.produce_img = baseUrl + element.produce_img;
+
+		// ... your existing logic for fetching order, finance, and company address details ...
+
+		const [order] = await db2.execute(
+			`SELECT * FROM quotations WHERE Quotation_ID = ?`,
+			[quotation_id]
+		);
+
+		const [quotationFinance] = await db2.execute(
+			`SELECT * FROM quotations WHERE Quotation_ID = ?`,
+			[quotation_id]
+		);
+
+		const [CompanyAddress] = await db2.execute(
+			"SELECT * FROM `Company_Address` WHERE `ID` = ?",
+			[3]
+		);
+		const Company_Address = CompanyAddress[0];
+
+		if (Company_Address) {
+			Company_Address.logo = baseUrl + Company_Address.logo;
 		}
-		if (element.ean_img) {
-		  element.ean_img = baseUrl + element.ean_img;
-		}
-		if (element.box_img) {
-		  element.box_img = baseUrl + element.box_img;
-		}
-  
-		// ... your existing logic for fetching additional details ...
-  
-		const sql1 = `SELECT ITF_Name_EN(${element.ITF}) AS ITF_Name`;
-		const [rows1] = await db2.query(sql1);
-		element.ITF_Name = rows1[0].ITF_Name;
-  
-		const sql2 = `SELECT ITF_Scientific_name(${element.ITF}) AS ITF_Scientific_name`;
-		const [rows2] = await db2.query(sql2);
-		element.ITF_Scientific_name = rows2[0].ITF_Scientific_name;
-  
-		const sql3 = `SELECT ITF_HSCODE(${element.ITF}) AS ITF_HSCODE`;
-		const [rows3] = await db2.query(sql3);
-		element.ITF_HSCODE = rows3[0].ITF_HSCODE;
-  
-		const sql4 = `SELECT PDF_Quotation_Unit_price(${element.QOD_ID}) AS Unit_price`;
-		const [rows4] = await db2.query(sql4);
-		element.Unit_price = rows4[0].Unit_price;
-	  }
-  
-	  // ... your existing logic for fetching order, finance, and company address details ...
-  
-	  const [order] = await db2.execute(
-		`SELECT * FROM quotations WHERE Quotation_ID = ?`,
-		[quotation_id]
-	  );
-  
-	  const [quotationFinance] = await db2.execute(
-		`SELECT * FROM quotations WHERE Quotation_ID = ?`,
-		[quotation_id]
-	  );
-  
-	  const [CompanyAddress] = await db2.execute(
-		"SELECT * FROM `Company_Address` WHERE `ID` = ?",
-		[3]
-	  );
-	  const Company_Address = CompanyAddress[0];
-  
-	  if (Company_Address) {
-		Company_Address.logo = baseUrl + Company_Address.logo;
-	  }
-  
-	  res.status(200).json({
-		success: true,
-		message: "Proforma Main Invoice Details",
-		quotationDetails: quotationDetailsArray,
-		Company_Address: Company_Address,
-		quotationFinance: quotationFinance,
-		quotation: order[0]
-	  });
+
+		res.status(200).json({
+			success: true,
+			message: "Proforma Main Invoice Details",
+			quotationDetails: quotationDetailsArray,
+			Company_Address: Company_Address,
+			quotationFinance: quotationFinance,
+			quotation: order[0]
+		});
 	} catch (e) {
-	  res.status(400).json({
-		success: false,
-		message: "Error Occurred",
-		error: e.message,
-	  });
+		res.status(400).json({
+			success: false,
+			message: "Error Occurred",
+			error: e.message,
+		});
 	}
-  };
+};
 
 const QuotationITFCHECK = async (req, res) => {
 	try {
@@ -1312,6 +1312,34 @@ const NewItfDropDown = async (req, res) => {
 	}
 }
 
+const ITFgenerateName = async (req, res) => {
+	const { ITF_ID, brand } = req.body
+	try {
+
+		const [details] = await db2.query(
+			"UPDATE itf SET brand = ? WHERE itf_id = ?",
+			[brand, ITF_ID] // Ensure you pass both 'brand' and 'itf_id' values
+		);
+
+
+		const [data] = await db2.execute("CALL ITF_Names_UPDATE(?)", [ITF_ID]);
+
+		const [itfData] = await db2.query(`
+            SELECT 
+	itf.Internal_Name_EN AS  ITF_Internal_Name_EN,
+	itf.Internal_Name_TH AS  ITF_Internal_Name_TH,
+    itf.itf_name_en,
+	itf.itf_name_th AS ITF_name_th
+FROM 
+    itf
+WHERE itf_id='${ITF_ID}'
+`);
+		res.status(200).json({ message: "success", data: data, itfData: itfData[0] })
+	} catch (e) {
+		res.status(500).json({ message: "Internal server error", error: e.message })
+	}
+}
+
 const QuotationMarkup = async (req, res) => {
 	const { Consignee_id } = req.body
 	try {
@@ -1386,5 +1414,6 @@ module.exports = {
 	QuotationMarkup,
 	QuotationCostModal,
 	OrderCostModal,
-	InvoiceCostModal
+	InvoiceCostModal,
+	ITFgenerateName
 }
