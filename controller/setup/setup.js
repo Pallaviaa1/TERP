@@ -2523,12 +2523,61 @@ const StatusChangeItf = (req, res) => {
 	}
 };
 
-const addItf = (req, res) => {
+/* const addItf = (req, res) => {
 	const { itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes } = req.body;
 
 	db.query(
 		`INSERT INTO itf(itf_name_en, itf_name_th, itf_code, brand, ITF_ean_adjustment, Notes) VALUES(?, ?, ?, ?, ?, ?)`,
 		[itf_name_en, itf_name_th, itf_code, brand, ITF_ean_adjustment, Notes],
+		(error, data) => {
+			if (error) {
+				return res.status(500).send({
+					success: false,
+					message: error.message, // Use error.message for a more concise error message
+				});
+			}
+
+			// Proceed with updating the image if req.file is present
+			if (req.file) {
+				const imageData = req.file.filename; // Assuming req.file.filename contains the image filename
+
+				db.query(
+					"UPDATE itf SET images = ? WHERE itf_id = ?",
+					[imageData, data.insertId],
+					(err) => {
+						if (err) {
+							return res.status(500).send({
+								success: false,
+								message: "Image update failed: " + err.message,
+							});
+						}
+						return res.status(200).send({
+							success: true,
+							itf_id: data.insertId,
+							message: "Inserted Successfully with Image",
+						});
+					}
+				);
+			} else {
+				// Respond when there is no image to update
+				return res.status(200).send({
+					success: true,
+					itf_id: data.insertId,
+					message: "Inserted Successfully",
+				});
+			}
+		}
+	);
+};
+ */
+
+
+const addItf = (req, res) => {
+	const { itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes } = req.body;
+
+	db.query(
+		`INSERT INTO itf(itf_code, brand, ITF_ean_adjustment, Notes) VALUES(?, ?, ?, ?)`,
+		[itf_code, brand, ITF_ean_adjustment, Notes || null],
 		(error, data) => {
 			if (error) {
 				return res.status(500).send({
@@ -2663,7 +2712,7 @@ const getIft = async (req, resp) => {
 	try {
 		// First, fetch the main `itf` data as you are already doing
 		const [itfData] = await db2.query(`
-            SELECT 
+            SELECT
     itf.itf_code,
     itf.itf_id,
     itf.brand,
@@ -2683,7 +2732,7 @@ FROM
     itf
 WHERE 
     ITF_Produce_Status(itf.itf_id) = 1
-ORDER BY
+ORDER BY 
     CAST(itf_classification_ID(itf.itf_id) AS INT),
     PDF_Customs_Produce_Name_ITF(itf.itf_id),
     itf.ITF_NW;
@@ -2842,7 +2891,7 @@ const updateItf = (req, res) => {
 	} = req.body
 	db.query(
 		"UPDATE itf SET itf_name_en = ?, itf_name_th = ?, brand =?, itf_code = ?, ITF_ean_adjustment = ?, Notes=? WHERE itf_id = ?",
-		[itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes, itf_id],
+		[itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes || null, itf_id],
 		(error, updateData) => {
 			if (error) {
 				res.status(500).send({

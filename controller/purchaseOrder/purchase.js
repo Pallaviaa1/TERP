@@ -219,12 +219,13 @@ const getNewPurchaseOrder = async (request, response) => {
 
 		// Base query for selecting purchase orders
 		let query = `
-				SELECT purchase_order.*, 
+				SELECT purchase_order.*, setup_bank.bank_name as paid_with,
        DATE_FORMAT(purchase_order.created, '%Y-%m-%d') AS created, 
        DATE_FORMAT(purchase_order.supplier_invoice_date, '%Y-%m-%d') AS supplier_invoice_date, 
        dropdown_currency.currency AS currency
 FROM purchase_order
-LEFT JOIN dropdown_currency ON dropdown_currency.currency_id = purchase_order.FX_ID`;
+LEFT JOIN dropdown_currency ON dropdown_currency.currency_id = purchase_order.FX_ID
+LEFT JOIN setup_bank ON setup_bank.bank_id = purchase_order.paid_by`;
 
 		// Add a condition to filter by PO_STATUS if the status is provided
 		if (status !== undefined) {
@@ -983,7 +984,8 @@ const purchaseOrderPayment = async (req, res) => {
 			LOSS_GAIN_THB,
 			Client_payment_ref,
 			Bank_Ref,
-			Notes
+			Notes,
+			user_id
 		} = req.body;
 
 		// Log the request body for debugging
@@ -1000,7 +1002,7 @@ const purchaseOrderPayment = async (req, res) => {
 				THB_Paid, 
 				Rounding, 
 				Client_payment_ref, 
-				Bank_Ref, Notes) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [Vendor_ID,
+				Bank_Ref, Notes, user_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [Vendor_ID,
 			Payment_date,
 			Payment_Channel,
 			FX_Payment,
@@ -1011,7 +1013,7 @@ const purchaseOrderPayment = async (req, res) => {
 			THB_Paid,
 			LOSS_GAIN_THB,
 			Client_payment_ref,
-			Bank_Ref, Notes || null],
+			Bank_Ref, Notes || null, user_id],
 			(error, data) => {
 				if (error) {
 					resp.status(500).send({

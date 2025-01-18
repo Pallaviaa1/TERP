@@ -1,7 +1,7 @@
 const { db } = require("../../db/db2")
 
 const addClient = async (req, res) => {
-	
+
 	try {
 		const [rows] = await db.execute(
 			"INSERT INTO clients (client_name, client_tax_number, client_email, client_phone, client_address, client_bank_name, client_bank_account, client_bank_number, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)",
@@ -378,7 +378,7 @@ const insertClientPayment = async (req, res) => {
 };
 
 
-const MainStatisticsAll = async (req, res) => {
+/* const MainStatisticsAll = async (req, res) => {
 	try {
 		const { Consignee_id, Client_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE } = req.body;
 
@@ -441,6 +441,95 @@ const MainStatisticsAll = async (req, res) => {
 			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
 
 		const [Expenses] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_");
+
+		res.status(200).json({
+			success: true,
+			data: {
+				Claim: Claim[0],
+				Freight: Freight[0],
+				GW: GW[0],
+				Income: Income[0],
+				Manhour: Manhour[0],
+				NW: NW[0],
+				Payables: Payables[0],
+				Profit: Profit[0],
+				Receivable: Receivable[0],
+				Expenses: Expenses[0]
+			}
+		});
+
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: "Internal server error",
+			error: error.message
+		});
+	}
+}; */
+
+const MainStatisticsAll = async (req, res) => {
+	try {
+		const { Consignee_id, Client_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE } = req.body;
+
+
+		const [data] = await db.execute("CALL Main_Statistics_1C(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Claim] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data1] = await db.execute("CALL Main_Statistics_2C(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Freight] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data2] = await db.execute("CALL Main_Statistics_3B(?, ?, ?, ?, ?, ?, @Total, @Difference, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [GW] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Title AS Title");
+
+		const [data3] = await db.execute("CALL Main_Statistics_1A(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Income] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data6] = await db.query("CALL Main_Statistics_2D(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Manhour] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data7] = await db.query("CALL Main_Statistics_3A(?, ?, ?, ?, ?, ?, @Total, @Difference, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [NW] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Title AS Title");
+
+		const [data8] = await db.query("CALL Main_Statistics_2B(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Payables] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+
+		const [data9] = await db.query("CALL Main_Statistics_1D(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Profit] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data4] = await db.query("CALL Main_Statistics_2A(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		const [Receivable] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data5] = await db.query("CALL Main_Statistics_1B(?, ?, ?, ?, ?, ?, @Total, @Difference, @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		const [Expenses] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
 
 		res.status(200).json({
 			success: true,

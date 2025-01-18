@@ -2137,8 +2137,6 @@ const invoice_procedure = async (req, res) => {
 	}
 }
 
-
-
 // Api for pdf delivery by 
 
 const pdf_delivery_by = async (req, res) => {
@@ -2181,7 +2179,11 @@ const proformaMain_Invoice = async (req, res) => {
 	try {
 		// Fetch order details
 		const [orderDetailsArray] = await db.execute(
-			`SELECT * FROM Invoice_details WHERE Invoice_id = ?`,
+			`SELECT * FROM Invoice_details WHERE Invoice_id = ?
+			ORDER BY Invoice_details.Invoice_id,
+     CAST(itf_classification_ID(Invoice_details.ITF_ID) AS INT),
+     PDF_Customs_Produce_Name_ITF(Invoice_details.ITF_ID),
+     (Invoice_details.net_weight / Invoice_details.Number_of_boxes)`,
 			[Invoice_id]
 		);
 
@@ -2223,8 +2225,8 @@ const proformaMain_Invoice = async (req, res) => {
 
 			if (order[0] && order[0].Consignee_id) {
 				const [ConsigneeCustomizeDetails] = await db.execute(
-					"SELECT Custom_Name as customize_Custom_Name FROM Consignee_Customize WHERE ConsigneeI = ?",
-					[order[0].Consignee_id]
+					"SELECT Custom_Name as customize_Custom_Name FROM Consignee_Customize WHERE ConsigneeI = ? AND ITF = ?",
+					[order[0].Consignee_id, orderDetails.ITF_ID]
 				);
 				const ConsigneeCustomize = ConsigneeCustomizeDetails[0];
 				// Do something with ConsigneeCustomize
@@ -2708,48 +2710,48 @@ const calculateInvoice = async (req, res) => {
 
 const UploadPdf = async (req, res) => {
 	try {
-	  if (!req.file) {
-		// Handle case where file is not present in the request
-		console.error('No file uploaded');
-		return res.status(400).json({
-		  success: false,
-		  message: 'No file uploaded'
-		});
-	  }
-  
-	  const document = req.file.filename;
-	  const uploadFolderPath = path.join(__dirname, '../public/image');  // Adjust to your folder path
-  
-	  // Extract the base name from the uploaded file (e.g., 'INV-202412040' part)
-	  const baseName = document.split('_')[0]; // Assuming filename format like 'INV-202412040_Invoice_30-12-2024'
-  
-	  // Read all files in the upload folder
-	  const files = fs.readdirSync(uploadFolderPath);
-  
-	  // Iterate through the files and delete those that start with the same base name, except the current one
-	  files.forEach((file) => {
-		if (file.startsWith(baseName) && file !== document) {  // Skip the current file
-		  const filePath = path.join(uploadFolderPath, file);
-		  fs.unlinkSync(filePath);  // Delete the file
-		  console.log(`Deleted existing file: ${file}`);
+		if (!req.file) {
+			// Handle case where file is not present in the request
+			console.error('No file uploaded');
+			return res.status(400).json({
+				success: false,
+				message: 'No file uploaded'
+			});
 		}
-	  });
-  
-	  // Now the file has been deleted, proceed with uploading the new file
-	  res.status(200).json({
-		success: true,
-		message: 'Uploaded and old files deleted successfully (excluding the current one)'
-	  });
+
+		const document = req.file.filename;
+		const uploadFolderPath = path.join(__dirname, '../public/image');  // Adjust to your folder path
+
+		// Extract the base name from the uploaded file (e.g., 'INV-202412040' part)
+		const baseName = document.split('_')[0]; // Assuming filename format like 'INV-202412040_Invoice_30-12-2024'
+
+		// Read all files in the upload folder
+		const files = fs.readdirSync(uploadFolderPath);
+
+		// Iterate through the files and delete those that start with the same base name, except the current one
+		files.forEach((file) => {
+			if (file.startsWith(baseName) && file !== document) {  // Skip the current file
+				const filePath = path.join(uploadFolderPath, file);
+				fs.unlinkSync(filePath);  // Delete the file
+				console.log(`Deleted existing file: ${file}`);
+			}
+		});
+
+		// Now the file has been deleted, proceed with uploading the new file
+		res.status(200).json({
+			success: true,
+			message: 'Uploaded and old files deleted successfully (excluding the current one)'
+		});
 	} catch (error) {
-	  console.error('Error in file upload:', error);
-	  res.status(500).json({
-		success: false,
-		message: 'Internal server error',
-		error: error.message
-	  });
+		console.error('Error in file upload:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Internal server error',
+			error: error.message
+		});
 	}
-  };
-  
+};
+
 
 const ApproveOrder = async (req, res) => {
 	try {
