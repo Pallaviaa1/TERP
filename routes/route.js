@@ -230,6 +230,7 @@ const {
 	updateMarginPaymentConsignee,
 	updateConsigneeNotify,
 	ConsigneeStatisticsAll,
+	updateConsigneeInvoiceOptions,
 	DeleteConsigneeCustomization,
 	DeleteContactDetails
 } = require("../controller/consignee")
@@ -498,6 +499,7 @@ router.get("/FXCorrection", FXCorrection)
 router.post("/updateMarginPaymentConsignee", updateMarginPaymentConsignee)
 router.post("/updateConsigneeNotify", updateConsigneeNotify)
 router.post("/ConsigneeStatisticsAll", ConsigneeStatisticsAll)
+router.post("/updateConsigneeInvoiceOptions", updateConsigneeInvoiceOptions)
 router.post("/DeleteConsigneeCustomization", DeleteConsigneeCustomization)
 router.post("/DeleteContactDetails", DeleteContactDetails)
 

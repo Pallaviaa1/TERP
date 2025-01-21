@@ -2577,7 +2577,7 @@ const addItf = (req, res) => {
 
 	db.query(
 		`INSERT INTO itf(itf_code, brand, ITF_ean_adjustment, Notes) VALUES(?, ?, ?, ?)`,
-		[itf_code, brand, ITF_ean_adjustment, Notes || null],
+		[itf_code, brand, ITF_ean_adjustment, Notes||null],
 		(error, data) => {
 			if (error) {
 				return res.status(500).send({

@@ -464,7 +464,7 @@ const ConsigneeStatisticsAll = async (req, res) => {
 		const [cnfResults] = await db2.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count");
 
 		const [data1] = await db2.execute("CALL Consignee_statistics_Claims(?, ?, ?, ?, ?, @Total, @Difference, @Count_)",
-			[ Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+			[Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
 
 		// Fetch the values of the output parameters
 		const [claimsResults] = await db2.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count");
@@ -676,11 +676,58 @@ const updateConsigneeNotify = async (req, res) => {
 	}
 };
 
+const updateConsigneeInvoiceOptions = async (req, res) => {
+	const {
+		consignee_id,
+		agreed_price,
+		custom_name,
+		gw_cbm,
+		invoice_name,
+		exchange_rate,
+		delivery_terms,
+		invoice_options
+	} = req.body;
+
+	try {
+		await db2.execute(
+			`UPDATE consignee 
+            SET 
+            agreed_price = ?,
+            custom_name = ?,
+            gw_cbm = ?,
+            invoice_name = ?,
+            exchange_rate = ?,
+			delivery_terms = ?,
+			invoice_options = ?
+            WHERE consignee_id = ?`, // Added comma after account_number
+			[
+				agreed_price,
+				custom_name,
+				gw_cbm,
+				invoice_name,
+				exchange_rate,
+				delivery_terms,
+				invoice_options,
+				consignee_id
+			],
+		);
+		res.status(200).json({
+			success: true,
+			message: "Consignee Details Updated",
+		});
+	} catch (e) {
+		res.status(400).json({
+			message: "Error Occurred",
+			error: e.message,
+		});
+	}
+};
+
 module.exports = {
 	getConsignee, getConsigneeByID, updateConsignee, createConsignee, getConsigneeCustomization,
 	DropdownContactType, createConsigneeCustomize, updateConsigneeCustomize, addContactDetails,
 	getContactList, updateContactDetails, getConsigneeStatistics, getConsigneeStatement, getConsigneeByUser,
 	DeleteConsigneeCustomization, DeleteContactDetails, MarginandPayments, DropdownDelivery, FXCorrection,
-	updateMarginPaymentConsignee, updateConsigneeNotify, ConsigneeStatisticsAll
+	updateMarginPaymentConsignee, updateConsigneeNotify, ConsigneeStatisticsAll, updateConsigneeInvoiceOptions
 }
 
