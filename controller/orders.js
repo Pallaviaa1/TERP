@@ -1882,7 +1882,7 @@ const InvoiceShipped = async (req, res) => {
         const Arrival_Airport = shipmentDetails[0][0]['Arrival Airport'] || '';
         const ETA = shipmentDetails[0][0].ETA || '';
         const Arrival_date = shipmentDetails[0][0].Arrival_date || '';
-        const Shipper = shipmentDetails[0][0].Shipper || '';
+        const Shipper = "Siam Eats" || '';
         const Invoice_Number = shipmentDetails[0][0].Invoice_number || '';
 
         // If a document file is uploaded, proceed with the email sending
@@ -1905,8 +1905,8 @@ const InvoiceShipped = async (req, res) => {
             );
 
             // const consigneeEmail = invoiceDetails[0]?.consignee_email || null;
-            const consigneeEmail = "mobappssolutions174@gmail.com";
-
+            // const consigneeEmail = "mobappssolutions174@gmail.com";
+			const consigneeEmail = invoiceDetails[0]?.consignee_email || null;
 
             if (!consigneeEmail) {
                 return res.status(400).json({ success: false, message: 'Consignee email is missing' });
