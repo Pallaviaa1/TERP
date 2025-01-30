@@ -149,6 +149,7 @@ const {
 	PurchaseTypeItemsList,
 	purchaseOrderPdfDetails,
 	expensePaymentSlip,
+	CommissionPaymentSlip,
 	InvoicePaymentSlip,
 	PurchaseOrderPackagingPayable,
 	RecordCommission,
@@ -178,6 +179,7 @@ const {
 	updateItfPb,
 	getItfDetails,
 	updateItfDetails,
+	deleteItf,
 	addItfDetails,
 } = require("../controller/itf/itf")
 const { getAllWage, updateWage, addWage } = require("../controller/wage")
@@ -317,6 +319,7 @@ const {
 	getInvoiceById,
 	RebateRecord,
 	RebateReduceInvoice,
+	sendMailData,
 	CustomeInvoicePdfDetails,
 	copyOrder,
 	invoicePdfTable,
@@ -573,6 +576,7 @@ router.post("/PurchaseVendorStatement", PurchaseVendorStatement)
 router.post("/PurchaseTypeItemsList", PurchaseTypeItemsList)
 router.post("/purchaseOrderPdfDetails", purchaseOrderPdfDetails)
 router.post("/expensePaymentSlip", expensePaymentSlip)
+router.post("/CommissionPaymentSlip", CommissionPaymentSlip)
 router.post("/InvoicePaymentSlip", InvoicePaymentSlip)
 router.get("/PurchaseOrderPackagingPayable", PurchaseOrderPackagingPayable)
 router.post("/RecordCommission", RecordCommission)
@@ -682,6 +686,7 @@ router.post("/updateEanDetails", updateEanDetails)
 router.post("/getItfDetails", getItfDetails)
 router.post("/getItfDetails", getItfDetails)
 router.post("/updateItfDetails", updateItfDetails)
+router.post("/deleteItf", deleteItf)
 router.post("/addItfDetails", addItfDetails)
 router.post("/createEanProducne", createEanProducne)
 router.post("/createEanPacking", createEanPacking)
@@ -788,6 +793,7 @@ router.get("/getOrderById", getOrderById)
 router.get("/getInvoiceById", getInvoiceById)
 router.post("/RebateRecord", RebateRecord)
 router.post("/RebateReduceInvoice", RebateReduceInvoice)
+router.get("/sendMailData", sendMailData)
 router.post("/cancle_invoice", cancle_invoice)
 router.post("/invoice_procedure", invoice_procedure)
 router.get('/proformaMain_Invoice', proformaMain_Invoice)

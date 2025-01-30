@@ -162,6 +162,24 @@ const updateItfDetails = async (req, res) => {
 		})
 	}
 }
+
+const deleteItf = async (req, res) => {
+	const { itf_id } = req.body
+	try {
+		await db2.query("DELETE FROM itf WHERE itf_id = ?", [
+			itf_id,
+		])
+		await db2.query("DELETE FROM itf_details WHERE itf_id = ?", [
+			itf_id,
+		])
+		return res.status(200).json({ success: true, message: "Success" })
+	} catch (e) {
+		return res
+			.status(500)
+			.json({ success: false, message: "Internal Server Error", error: e })
+	}
+}
+
 module.exports = {
 	addItfEan,
 	addItfPb,
@@ -174,4 +192,5 @@ module.exports = {
 	getItfDetails,
 	addItfDetails,
 	updateItfDetails,
+	deleteItf
 }

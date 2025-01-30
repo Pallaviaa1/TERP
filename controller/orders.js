@@ -484,9 +484,6 @@ const updateOrder = async (req, res) => {
 			);
 			//console.log(notification_id.length);
 			if (notification_id.length > 0) {
-				const [notification_msg] = await db.execute(
-					`SELECT notification_name, notification_message FROM notification_messages WHERE id = '${notification_id[0].notification_id}'`
-				);
 
 				const [notification_users] = await db.execute(
 					`SELECT notifications.user, users.email FROM notifications
@@ -871,6 +868,7 @@ const deleteOrder = async (req, res) => {
 const updateOrderFreight = async (req, res) => {
 	const {
 		order_id,
+		Customer_ref,
 		Liner,
 		bl,
 		Load_date,
@@ -931,6 +929,14 @@ const updateOrderFreight = async (req, res) => {
 				],
 			)
 		}
+		await db.execute(
+			`UPDATE orders SET
+			Customer_ref = ? WHERE Order_ID = ?`,
+			[
+				Customer_ref,
+				order_id
+			],
+		)
 		res.status(200).json({ message: "success" })
 	} catch (e) {
 		res.status(500).json({ message: "Internal server error", error: e })
@@ -1840,156 +1846,174 @@ const InvoiceAdjustWeight = async (req, res) => {
  */
 
 const InvoiceShipped = async (req, res) => {
-    const { Invoice_id } = req.body;
+	const { Invoice_id } = req.body;
 
-    if (!Invoice_id) {
-        return res.status(400).json({ message: 'Invoice id is required' });
-    }
+	if (!Invoice_id) {
+		return res.status(400).json({ message: 'Invoice ID is required' });
+	}
 
-    try {
-        // Call the Invoice_Shipped procedure to get the message_en and message_th
-        const sqlFOB = 'CALL Invoice_Shipped(?, @Message_en, @Message_th); SELECT @Message_en AS Message_en, @Message_th AS Message_th;';
-        const [rows] = await db.query(sqlFOB, [Invoice_id]);
+	try {
+		// Call Invoice_Shipped stored procedure
+		const sqlFOB = 'CALL Invoice_Shipped(?, @Message_en, @Message_th); SELECT @Message_en AS Message_en, @Message_th AS Message_th;';
+		const [rows] = await db.query(sqlFOB, [Invoice_id]);
 
-        // Check if there are any error messages returned
-        const message_en = rows[1][0].Message_en;
-        const message_th = rows[1][0].Message_th;
+		// Retrieve messages from the procedure
+		const message_en = rows[1]?.[0]?.Message_en || null;
+		const message_th = rows[1]?.[0]?.Message_th || null;
 
-        if (message_en || message_th) {
-            return res.status(200).json({
-                success: false,
-                message_en,
-                message_th,
-            });
-        }
+		if (message_en || message_th) {
+			return res.status(200).json({
+				success: false,
+				message_en,
+				message_th,
+			});
+		}
 
-        // Call the Shipment_Notification_PO procedure to get shipment details
-        const sqlShipment = 'CALL Shipment_Notification_PO(?);';
-        const [shipmentDetails] = await db.query(sqlShipment, [Invoice_id]);
+		// Handle file upload for document update
+		if (req.file) {
+			const document = req.file.filename;
+			await db.execute(
+				'UPDATE Invoices SET document = ? WHERE Invoice_id = ?',
+				[document, Invoice_id]
+			);
+		}
 
-        // Check if the shipment details were retrieved
-        if (shipmentDetails.length === 0 || !shipmentDetails[0] || shipmentDetails[0].length === 0) {
-            return res.status(404).json({ message: 'No shipment details found for this Invoice ID' });
-        }
+		// Fetch shipment details using Shipment_Notification_PO
+		const sqlShipment = 'CALL Shipment_Notification_PO(?);';
+		const [shipmentDetails] = await db.query(sqlShipment, [Invoice_id]);
 
-        // Extract shipment details from the result
-        const PO_number = shipmentDetails[0][0]['PO number'] || '';
-        const AWB = shipmentDetails[0][0].AWB || '';
-        const Buyer = shipmentDetails[0][0].Buyer || '';
-        const Consignee = shipmentDetails[0][0].Consignee || '';
-        const Flight_Number = shipmentDetails[0][0]['Flight Number'] || '';
-        const Airline = shipmentDetails[0][0].Airline || '';
-        const Arrival_Airport = shipmentDetails[0][0]['Arrival Airport'] || '';
-        const ETA = shipmentDetails[0][0].ETA || '';
-        const Arrival_date = shipmentDetails[0][0].Arrival_date || '';
-        const Shipper = "Siam Eats" || '';
-        const Invoice_Number = shipmentDetails[0][0].Invoice_number || '';
+		if (!shipmentDetails?.[0]?.length) {
+			return res.status(404).json({ message: 'No shipment details found for this Invoice ID' });
+		}
 
-        // If a document file is uploaded, proceed with the email sending
-        if (req.file) {
-            const document = req.file.filename;
+		const shipmentData = shipmentDetails[0][0];
+		const {
+			'PO number': PO_number = '',
+			AWB = '',
+			Buyer = '',
+			Consignee = '',
+			'Flight Number': Flight_Number = '',
+			Airline = '',
+			'Arrival Airport': Arrival_Airport = '',
+			ETA = '',
+			'Arrival Date': Arrival_date = '',
+			Invoice_number = '',
+		} = shipmentData;
 
-            // Update the Invoices table with the document
-            await db.execute(
-                'UPDATE Invoices SET document = ? WHERE Invoice_id = ?',
-                [document, Invoice_id]
-            );
+		const Shipper = "Siam Eats";
 
-            // Fetch consignee email
-            const [invoiceDetails] = await db.execute(
-                `SELECT consignee.consignee_email AS consignee_email 
-                 FROM Invoices 
-                 LEFT JOIN consignee ON consignee.consignee_id = Invoices.Consignee_id
-                 WHERE Invoices.Invoice_id = ?`,
-                [Invoice_id]
-            );
+		// Fetch related invoice details
+		const [invoiceDetails] = await db.query(
+			`SELECT Invoices.order_id, Invoices.Consignee_id, Invoices.Client_ID
+             FROM Invoices 
+             WHERE Invoices.Invoice_id = ?`,
+			[Invoice_id]
+		);
 
-            // const consigneeEmail = invoiceDetails[0]?.consignee_email || null;
-            // const consigneeEmail = "mobappssolutions174@gmail.com";
-			const consigneeEmail = invoiceDetails[0]?.consignee_email || null;
+		if (!invoiceDetails?.length) {
+			return res.status(404).json({ message: 'No invoice details found for this Invoice ID' });
+		}
 
-            if (!consigneeEmail) {
-                return res.status(400).json({ success: false, message: 'Consignee email is missing' });
-            }
+		const { order_id, Consignee_id, Client_ID } = invoiceDetails[0];
 
-            // Generate email content
-            const emailContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
-    .container { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); max-width: 600px; margin: auto; }
-    .header { background-color: #4CAF50; padding: 10px; border-radius: 10px 10px 0 0; text-align: center; }
-    .header img { max-width: 150px; }
-    .content { padding: 20px; }
-    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: gray; }
-    .footer a { color: #4CAF50; text-decoration: none; }
-</style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <img src="https://terp.siameats.net/api/images/white_logo.png" alt="Siam Eats Logo">
-    </div>
-    <div class="content">
-        <p>Hello,</p>
-        <p>AWB has been uploaded on Siam Eats. Please find the details below:</p>
-        <h3>SIAM EATS SHIPMENT NOTIFICATION ${PO_number}:</h3>
-        <p>
-        <strong>AWB:</strong> ${AWB}<br>
-        <strong>Buyer:</strong> ${Buyer}<br>
-        <strong>Consignee:</strong> ${Consignee}<br>
-        <strong>Flight Number:</strong> ${Flight_Number}<br>
-        <strong>Airline:</strong> ${Airline}<br>
-        <strong>Arrival Airport:</strong> ${Arrival_Airport}<br>
-        <strong>ETA:</strong> ${ETA} ${Arrival_date}<br>
-        <strong>Shipper:</strong> ${Shipper}<br>
-        <strong>Invoice Number:</strong> ${Invoice_Number}<br>
-        </p>
-    </div>
-    <div class="footer">
-        <p><strong>Siam Eats</strong><br>Providing you with the best culinary experiences.</p>
-        <p>This is an automated message, please do not reply.</p>
-    </div>
-</div>
-</body>
-</html>`;
+		// Fetch notification details
+		const [notification_id] = await db.execute(
+			`SELECT * FROM notification_details 
+             WHERE notify_on = 11 AND client = ? AND consignee = ?`,
+			[Client_ID, Consignee_id]
+		);
 
-            // Prepare attachment
-            const attachments = [
-                {
-                    filename: document,
-                    path: path.join(__dirname, '../public/image', document), // Ensure the file path is correct
-                },
-            ];
+		if (notification_id?.length) {
+			const [notification_users] = await db.execute(
+				`SELECT notifications.user, users.email 
+                 FROM notifications
+                 LEFT JOIN users ON users.id = notifications.user 
+                 WHERE notification_id = ?`,
+				[notification_id[0].notification_id]
+			);
 
-            // Send email
-            await sendMail(
-                consigneeEmail,
-                `SIAM EATS SHIPMENT NOTIFICATION ${PO_number}`,
-                emailContent,
-                attachments
-            );
-        }
+			const title = PO_number || 'Add Shipment';
+			const body = `AWB: ${AWB} Buyer: ${Buyer} Consignee: ${Consignee} Flight Number: ${Flight_Number} Airline: ${Airline} Arrival Airport: ${Arrival_Airport} ETA: ${ETA} ${Arrival_date} Shipper: ${Shipper} Invoice Number: ${Invoice_number}`;
 
-        res.status(200).json({
-            success: true,
-            message: 'Invoice shipped successfully and email sent with attachment',
-            data: shipmentDetails,
-        });
-    } catch (e) {
-        console.error('Error:', e.message);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: e.message,
-        });
-    }
+			const emailContent = `
+                <html>
+                <body>
+                    <p>${PO_number}:</p>
+                    <p><strong>AWB:</strong> ${AWB}<br>
+                    <strong>Buyer:</strong> ${Buyer}<br>
+                    <strong>Consignee:</strong> ${Consignee}<br>
+                    <strong>Flight Number:</strong> ${Flight_Number}<br>
+                    <strong>Airline:</strong> ${Airline}<br>
+                    <strong>Arrival Airport:</strong> ${Arrival_Airport}<br>
+                    <strong>ETA:</strong> ${ETA} ${Arrival_date}<br>
+                    <strong>Shipper:</strong> ${Shipper}<br>
+                    <strong>Invoice Number:</strong> ${Invoice_number}</p>
+                </body>
+                </html>`;
+
+			const attachments = req.file ? [{
+				filename: req.file.filename,
+				path: path.join(__dirname, '../public/image', req.file.filename),
+			}] : [];
+
+			for (const user of notification_users) {
+				await db.execute(
+					`INSERT INTO notification_history 
+                     (notification_id, user_id, order_id, invoice_id, title, messages) 
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+					[
+						notification_id[0].notification_id,
+						user.user,
+						order_id,
+						Invoice_id,
+						title,
+						body,
+					]
+				);
+				const email = user.email;
+
+				// Validate email before sending
+				if (!email || !email.includes('@')) {
+					console.error('Invalid email:', email);
+					continue;
+				}
+
+				console.log(`Sending email to: ${email}`);
+
+				try {
+					await sendMail(
+						email,
+						`${PO_number}`,
+						emailContent,
+						attachments
+					);
+					console.log('Email sent successfully');
+				} catch (error) {
+					// Handle the error in sending email
+					console.error('Error sending email:', error);
+					return res.status(500).json({
+						success: false,
+						message: 'Failed to send email',
+						error: error.message,
+					});
+				}
+			}
+		}
+
+		return res.status(200).json({
+			success: true,
+			message: 'Invoice shipped successfully and email sent with attachment',
+			data: shipmentDetails,
+		});
+	} catch (error) {
+		console.error('Error:', error.message);
+		return res.status(500).json({
+			success: false,
+			message: 'Internal server error',
+			error: error.message,
+		});
+	}
 };
-
 
 
 const CustomeInvoicePdfDetails = async (req, res) => {
@@ -2833,36 +2857,36 @@ const calculateInvoice = async (req, res) => {
 	}
 }
 
-// const UploadPdf = async (req, res) => {
-// 	try {
-// 		if (!req.file) {
-// 			// Handle case where file is not present in the request
-// 			console.error('No file uploaded');
-// 			return res.status(400).json({
-// 				success: false,
-// 				message: 'No file uploaded'
-// 			});
-// 		}
-
-// 		const document = req.file.filename;
-// 		//console.log('Uploaded document:', document);
-
-// 		res.status(200).json({
-// 			success: true,
-// 			message: 'Uploaded successfully'
-// 		});
-// 	} catch (error) {
-// 		console.error('Error in file upload:', error);
-// 		res.status(500).json({
-// 			success: false,
-// 			message: 'Internal server error',
-// 			error: error.message
-// 		});
-// 	}
-// };
-
-
 const UploadPdf = async (req, res) => {
+	try {
+		if (!req.file) {
+			// Handle case where file is not present in the request
+			console.error('No file uploaded');
+			return res.status(400).json({
+				success: false,
+				message: 'No file uploaded'
+			});
+		}
+
+		const document = req.file.filename;
+		//console.log('Uploaded document:', document);
+
+		res.status(200).json({
+			success: true,
+			message: 'Uploaded successfully'
+		});
+	} catch (error) {
+		console.error('Error in file upload:', error);
+		res.status(500).json({
+			success: false,
+			message: 'Internal server error',
+			error: error.message
+		});
+	}
+};
+
+
+/* const UploadPdf = async (req, res) => {
 	try {
 		if (!req.file) {
 			// Handle case where file is not present in the request
@@ -2905,7 +2929,7 @@ const UploadPdf = async (req, res) => {
 		});
 	}
 };
-
+ */
 
 const ApproveOrder = async (req, res) => {
 	try {
@@ -3318,6 +3342,119 @@ const RebateReduceInvoice = async (req, res) => {
 	}
 }
 
+const sendMailData = async (req, res) => {
+	try {
+		let Email = "mobappssolutions174@gmail.com";
+		let mailSubject = "TEST";
+		let content = `<!DOCTYPE html>
+					<html lang="en">
+					<head>
+						<meta charset="UTF-8">
+						<meta name="viewport" content="width=device-width, initial-scale=1.0">
+						<style>
+							body {
+								font-family: Arial, sans-serif;
+								margin: 0;
+								padding: 20px;
+								background-color: #f4f4f4;
+							}
+							.container {
+								background-color: white;
+								padding: 20px;
+								border-radius: 10px;
+								box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+								max-width: 600px;
+								margin: auto;
+							}
+							.header {
+								background-color: #4CAF50;
+								padding: 10px;
+								border-radius: 10px 10px 0 0;
+								text-align: center;
+							}
+							.header img {
+								max-width: 150px;
+							}
+							.content {
+								padding: 20px;
+							}
+							.footer {
+								text-align: center;
+								margin-top: 20px;
+								font-size: 12px;
+								color: gray;
+							}
+							.footer a {
+								color: #4CAF50;
+								text-decoration: none;
+							}
+						</style>
+					</head>
+					<body>
+						<div class="container">
+							<div class="header">
+								<img src="https://terp.siameats.net/api/images/white_logo.png" alt="Siam Eats Logo">
+							</div>
+							<div class="content">
+								<p>Hello,</p>
+								<p>Order has been updated on Siam Eats. Please find the details below:</p>
+								<h3>Order Information:</h3>
+								<p>
+								<strong>Order Number:</strong> data <br>
+								<strong>Order Date:</strong> data<br>
+								<strong>TTR REF:</strong> data <br>
+								<strong>Client Name:</strong> data <br>
+								<strong>Consignee Name:</strong> data<br>
+								<strong>Load Date:</strong> data<br>
+								<strong>Created by:</strong> data</p>
+							</div>
+							<div class="footer">
+								<p>If you need to manage the order, please <a href="https://siameats.com/app.terp.com/">log in to the admin portal</a>.</p>
+								<p><strong>Siam Eats</strong><br>Providing you with the best culinary experiences.</p>
+								<p>This is an automated message, please do not reply.</p>
+							</div>
+						</div>
+					</body>
+					</html>`;
+
+		const SMTP_MAIL = "mobappssolutions174@gmail.com";
+		const SMTP_PASSWORD = "mrzxxodbaboizbmo";
+
+		const transport = nodemailer.createTransport({
+			host: 'smtp.gmail.com',
+			port: 587,
+			secure: false,
+			requireTLS: true,
+			auth: {
+				user: SMTP_MAIL,
+				pass: SMTP_PASSWORD
+			}
+		});
+
+		const mailOptions = {
+			from: `Siameats <${SMTP_MAIL}>`,
+			to: Email,
+			subject: mailSubject,
+			html: content,
+		};
+
+		transport.sendMail(mailOptions, (error, info) => {
+			if (error) {
+				console.error("Error sending email:", error);
+				return res.status(500).json({ success: false, message: "Email sending failed", error });
+			}
+			console.log("Email sent:", info);
+			return res.status(200).json({ success: true, message: "Email sent successfully", info });
+		});
+	} catch (error) {
+		console.error("Unexpected error:", error);
+		res.status(400).json({
+			message: "An error occurred while sending the email.",
+			error: error.message,
+		});
+	}
+};
+
 
 
 module.exports = {
@@ -3383,5 +3520,6 @@ module.exports = {
 	getOrderById,
 	getInvoiceById,
 	RebateRecord,
-	RebateReduceInvoice
+	RebateReduceInvoice,
+	sendMailData
 }

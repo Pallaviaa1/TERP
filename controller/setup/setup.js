@@ -2573,11 +2573,11 @@ const StatusChangeItf = (req, res) => {
 
 
 const addItf = (req, res) => {
-	const { itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes } = req.body;
+	const { itf_name_en, itf_name_th, brand, itf_code, ITF_ean_adjustment, Notes, user_id } = req.body;
 
 	db.query(
-		`INSERT INTO itf(itf_code, brand, ITF_ean_adjustment, Notes) VALUES(?, ?, ?, ?)`,
-		[itf_code, brand, ITF_ean_adjustment, Notes||null],
+		`INSERT INTO itf(itf_code, brand, ITF_ean_adjustment, Notes, user) VALUES(?, ?, ?, ?, ?)`,
+		[itf_code, brand, ITF_ean_adjustment, Notes || null, user_id],
 		(error, data) => {
 			if (error) {
 				return res.status(500).send({

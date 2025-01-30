@@ -1057,7 +1057,8 @@ const RecordCommissionPayment = async (req, res) => {
 			Local_bank_Charges,
 			Client_payment_ref,
 			Bank_Ref,
-			Notes
+			Notes,
+			user_id
 		} = req.body;
 
 		// Log the request body for debugging
@@ -1072,7 +1073,7 @@ const RecordCommissionPayment = async (req, res) => {
 				Intermittent_bank_charges,  
 				Local_bank_Charges, 
 				Client_payment_ref, 
-				Bank_Ref, Notes, V, C) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`, [Vendor_ID,
+				Bank_Ref, Notes, V, C, user_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`, [Vendor_ID,
 			Payment_date,
 			Payment_Channel,
 			FX_Payment,
@@ -1081,7 +1082,7 @@ const RecordCommissionPayment = async (req, res) => {
 			Intermittent_bank_charges,
 			Local_bank_Charges,
 			Client_payment_ref,
-			Bank_Ref, Notes || null, null, 1],
+			Bank_Ref, Notes || null, null, 1, user_id || null],
 			(error, data) => {
 				if (error) {
 					resp.status(500).send({
@@ -1652,6 +1653,114 @@ const InvoicePaymentSlip = async (req, res) => {
 	}
 };
 
+
+const CommissionPaymentSlip = async (req, res) => {
+	try {
+		const { Expense_Payment_ID } = req.body;
+
+		// Step 1: Get company address
+		const companyAddressQuery = 'SELECT * FROM `Company_Address` WHERE `ID` = ?';
+		const companyAddress = await new Promise((resolve, reject) => {
+			db.query(companyAddressQuery, [3], (err, result) => {
+				if (err) return reject(err);
+				resolve(result[0]); // Assuming you want the first result
+			});
+		});
+
+		// Step 2: Get Vendor ID
+		const vendorQuery = `SELECT Expense_payment.Vendor_ID FROM Expense_payment 
+		WHERE Expense_payment.V_payment_id = ?`;
+		const [vendorResult] = await new Promise((resolve, reject) => {
+			db.query(vendorQuery, [Expense_Payment_ID], (err, result) => {
+				if (err) return reject(err);
+				resolve(result);
+			});
+		});
+
+
+		// Check if vendorResult has data
+		if (!vendorResult || vendorResult.length === 0) {
+			return res.status(400).json({ message: "Vendor not found for the given payment ID" });
+		}
+
+		const vendorID = vendorResult.Vendor_ID;
+
+		// Step 3: Get Vendor Name Address
+		const vendorNameAddressQuery = 'SELECT Vendor_name_Address.Name_exp_2 FROM Vendor_name_Address WHERE Vendor_name_Address.vendor_id = ?';
+		const [vendorNameAddress] = await new Promise((resolve, reject) => {
+			db.query(vendorNameAddressQuery, [vendorID], (err, result) => {
+				if (err) return reject(err);
+				resolve(result);
+			});
+		});
+
+		// Step 4: Get Vendor Bank Details and Payment Information
+		const vendorBankDetailsQuery = `
+		SELECT 
+		  vendors.bank_name,
+		  vendors.bank_number,
+		  vendors.bank_account,
+		  Expense_payment.Payment_date,
+		  setup_bank.Bank_nick_name
+		FROM vendors
+		JOIN Expense_payment ON Expense_payment.Vendor_ID = vendors.vendor_id
+		JOIN setup_bank ON Expense_payment.Payment_Channel = setup_bank.bank_id
+		WHERE vendors.vendor_id = ? AND Expense_payment.V_payment_id = ?
+	  `;
+		const [vendorBankDetails] = await new Promise((resolve, reject) => {
+			db.query(vendorBankDetailsQuery, [vendorID, Expense_Payment_ID], (err, result) => {
+				if (err) return reject(err);
+				resolve(result);
+			});
+		});
+
+		// Step 5: Get Commission Data
+		const commissionDataQuery = `SELECT Commissions.*, Invoices.Invoice_number, Expense_payment.Payment_date, dropdown_currency.currency AS currency  FROM Commissions 
+		INNER JOIN Invoices ON Invoices.Invoice_id = Commissions.Invoice_ID
+		INNER JOIN Expense_payment ON Expense_payment.V_payment_id = Commissions.Payment_ID
+		INNER JOIN dropdown_currency ON dropdown_currency.currency_id= Expense_payment.FX_ID
+		WHERE Commissions.Payment_ID = ?`;
+		const commissionData = await new Promise((resolve, reject) => {
+			db.query(commissionDataQuery, [Expense_Payment_ID], (err, result) => {
+				if (err) return reject(err);
+				resolve(result);
+			});
+		});
+
+		// Step 6: Get Total Commission and WHT
+		const totalDataQuery = `
+		SELECT 
+		  SUM(Commision_THB) AS total_commision_THB, 
+		  SUM(WHT_15) AS total_WHT, 
+		  SUM(Commision_THB) - SUM(WHT_15) AS AllTotal 
+		FROM Commissions 
+		WHERE Payment_ID = ?
+	  `;
+		const [totalData] = await new Promise((resolve, reject) => {
+			db.query(totalDataQuery, [Expense_Payment_ID], (err, result) => {
+				if (err) return reject(err);
+				resolve(result);
+			});
+		});
+
+		// Sending the response with all the gathered data
+		res.status(200).json({
+			success: true,
+			message: "Success",
+			companyAddress,
+			table_data: commissionData,
+			headerData: vendorNameAddress || {},
+			vendorBankDetails: vendorBankDetails || {},
+			Toataldata: totalData || {},
+			vendorResult
+		});
+
+	} catch (e) {
+		res.status(500).json({ message: "Error has occurred", error: e.message });
+	}
+};
+
+
 //  Purchase_Order_Packaging_Payable
 const PurchaseOrderPackagingPayable = async (req, res) => {
 	try {
@@ -1811,6 +1920,7 @@ module.exports = {
 	PurchaseTypeItemsList,
 	purchaseOrderPdfDetails,
 	expensePaymentSlip,
+	CommissionPaymentSlip,
 	InvoicePaymentSlip,
 	PurchaseOrderPackagingPayable,
 	RecordCommission,

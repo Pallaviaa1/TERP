@@ -1315,13 +1315,12 @@ const NewItfDropDown = async (req, res) => {
 const ITFgenerateName = async (req, res) => {
 	const { ITF_ID, brand } = req.body
 	try {
-
-		const [details] = await db2.query(
-			"UPDATE itf SET brand = ? WHERE itf_id = ?",
-			[brand, ITF_ID] // Ensure you pass both 'brand' and 'itf_id' values
-		);
-
-
+		if (brand) {
+			const [details] = await db2.query(
+				"UPDATE itf SET brand = ? WHERE itf_id = ?",
+				[brand, ITF_ID] // Ensure you pass both 'brand' and 'itf_id' values
+			);
+		}
 		const [data] = await db2.execute("CALL ITF_Names_UPDATE(?)", [ITF_ID]);
 
 		const [itfData] = await db2.query(`

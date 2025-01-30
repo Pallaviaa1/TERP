@@ -75,7 +75,8 @@ const GetNotificationList = async (req, res) => {
             7: 'Order Approved',
             8: 'Order Update Any Time',
             9: 'Order Update before set date',
-            10: 'Order Deadline'
+            10: 'Order Deadline',
+            11: 'Add Shipment'
         };
 
         // Process the results to group users by notification ID
@@ -125,9 +126,6 @@ const GetNotificationList = async (req, res) => {
         });
     }
 };
-
-module.exports = { GetNotificationList };
-
 
 
 const UpdateNotification = async (req, res) => {
@@ -300,6 +298,13 @@ const updateNotificationSeen = async (req, res) => {
         });
     }
 };
+
+
+//if gender male chenge to female if female chnege to male
+// update_profile
+
+
+
 
 module.exports = {
     addNotification, GetNotificationList, UpdateNotification, getUserNotification, updateNotificationSeen

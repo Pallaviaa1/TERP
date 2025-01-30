@@ -531,6 +531,18 @@ const MainStatisticsAll = async (req, res) => {
 
 		const [Expenses] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
 
+		const [data10] = await db.query("CALL Main_Statistics_3C(?, ?, ?, ?, ?, ?, @Total, @Difference,  @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [AR_Ratios] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
+		const [data11] = await db.query("CALL Main_Statistics_3D(?, ?, ?, ?, ?, ?, @Total, @Difference,  @Count_, @Title)",
+			[Client_id, Consignee_id, Start_Date, End_Date, Compare_Start_DATE, Compare_END_DATE])
+
+		// Fetch the values of the output parameters
+		const [Ratios] = await db.execute("SELECT @Total AS Total, @Difference AS Difference, @Count_ AS Count_, @Title AS Title");
+
 		res.status(200).json({
 			success: true,
 			data: {
@@ -543,7 +555,9 @@ const MainStatisticsAll = async (req, res) => {
 				Payables: Payables[0],
 				Profit: Profit[0],
 				Receivable: Receivable[0],
-				Expenses: Expenses[0]
+				Expenses: Expenses[0],
+				AR_Ratios: AR_Ratios[0],
+				Ratios: Ratios[0]
 			}
 		});
 
